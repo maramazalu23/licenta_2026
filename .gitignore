@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+data_out/scraper.db
+data_out/raw/
+logs/
+.venv/
+.vscode/
+.idea/
