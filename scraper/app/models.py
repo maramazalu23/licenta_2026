@@ -78,12 +78,10 @@ class Product(BaseModel):
         elif "," in clean_s:
             clean_s = clean_s.replace(",", ".")
         elif "." in clean_s:
-            # dacă are mai multe puncte -> mii
             if clean_s.count(".") > 1:
                 clean_s = clean_s.replace(".", "")
             else:
                 parts = clean_s.split(".")
-                # 1.234 (mii) vs 1234.56 (zecimale)
                 if len(parts[-1]) == 3:
                     clean_s = clean_s.replace(".", "")
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Iterable, List, Optional, Tuple
 
@@ -80,9 +81,10 @@ class Publi24Scraper(SiteScraper):
         # folosim “zona” din jurul titlului + căutări după text.
         container = h1.parent if h1 else soup
 
-        price_text = self._extract_first_text_with(container, "RON")
+        price_text = self._extract_price_from_jsonld(soup)
         if not price_text:
-            price_text = self._extract_first_text_with(soup, "RON")
+            price_text = self._extract_price_fallback_text(soup)
+
         price_value = clean_text(price_text)
 
         location = self._extract_location_near(container)
@@ -195,3 +197,52 @@ class Publi24Scraper(SiteScraper):
                 if idx + 1 < len(strings):
                     return clean_text(strings[idx + 1])
         return None
+    
+    @staticmethod
+    def _extract_price_from_jsonld(soup: BeautifulSoup) -> Optional[str]:
+        scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
+        for sc in scripts:
+            try:
+                raw = sc.string or sc.get_text(strip=True)
+                if not raw: continue
+                data = json.loads(raw)
+                
+                items = data if isinstance(data, list) else [data]
+                for it in items:
+                    if not isinstance(it, dict): continue
+                    
+                    # Structură standard Schema.org pentru produse
+                    offers = it.get("offers")
+                    if isinstance(offers, dict):
+                        price = offers.get("price") or offers.get("lowPrice")
+                        if price: return str(price)
+                    elif isinstance(offers, list) and len(offers) > 0:
+                        price = offers[0].get("price")
+                        if price: return str(price)
+            except Exception:
+                continue
+        return None
+
+    @staticmethod
+    def _extract_price_fallback_text(soup: BeautifulSoup) -> Optional[str]:
+        # Regex îmbunătățit pentru a prinde prețuri de tip 1.200, 1200, 1.200,00
+        PRICE_RE = re.compile(r"(\d[\d\.\s]*)(?:,(\d{2}))?\s*(lei|ron)\b", re.IGNORECASE)
+        candidates = []
+        text = soup.get_text(" ", strip=True)
+
+        for m in PRICE_RE.finditer(text):
+            num_part = (m.group(1) or "").replace(" ", "").replace(".", "")
+            dec_part = m.group(2)
+            
+            try:
+                val_str = f"{num_part}.{dec_part}" if dec_part else num_part
+                val = float(val_str)
+                if val > 10: # Ignorăm valori nerealiste (gen 1 leu sau erori de regex)
+                    candidates.append((val, m.group(0)))
+            except:
+                continue
+
+        if not candidates: return None
+        # Sortăm descrescător după valoarea numerică (prețul e de obicei cea mai mare cifră cu lei/ron)
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1]
