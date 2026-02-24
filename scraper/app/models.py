@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Optional, Literal, Dict, Any
 import re
 
@@ -53,39 +53,30 @@ class Product(BaseModel):
 
     @field_validator("price", mode="before")
     @classmethod
-    def parse_price(cls, v: Any) -> Optional[Decimal]:
+    def normalize_price(cls, v: Any) -> Optional[str]:
         if v is None:
             return None
 
-        if isinstance(v, (int, float, Decimal)):
-            try:
-                return Decimal(str(v))
-            except (InvalidOperation, ValueError):
-                return None
-
-        s = str(v).strip().lower()
-
-        if any(word in s for word in ["contact", "negociabil", "la cerere", "n/a", "schimb"]):
+        s = str(v).strip()
+        if not s:
             return None
 
-        clean_s = re.sub(r"[^0-9,.]", "", s)
-        if not clean_s:
-            return None
+        # scoate currency words
+        s = re.sub(r"\b(lei|ron)\b", "", s, flags=re.I).strip()
 
-        # 1.234,56 -> 1234.56
-        if "," in clean_s and "." in clean_s:
-            clean_s = clean_s.replace(".", "").replace(",", ".")
-        elif "," in clean_s:
-            clean_s = clean_s.replace(",", ".")
-        elif "." in clean_s:
-            if clean_s.count(".") > 1:
-                clean_s = clean_s.replace(".", "")
-            else:
-                parts = clean_s.split(".")
-                if len(parts[-1]) == 3:
-                    clean_s = clean_s.replace(".", "")
+        # elimină spații (și NBSP)
+        s = s.replace("\u00a0", "").replace(" ", "")
+
+        # dacă avem și virgulă, presupunem că virgula e zecimală
+        # ex: 6.398,99 -> 6398.99
+        if "," in s:
+            s = s.replace(".", "").replace(",", ".")
+        # altfel: 6398.990015 rămâne ok
 
         try:
-            return Decimal(clean_s)
-        except (InvalidOperation, ValueError):
+            d = Decimal(s)
+        except InvalidOperation:
             return None
+
+        d = d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        return str(d)

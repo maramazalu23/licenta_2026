@@ -29,7 +29,7 @@ class Publi24Scraper(SiteScraper):
         # "electronice": "https://www.publi24.ro/anunturi/electronice/",
     }
 
-    DETAIL_HREF_RE = re.compile(r"/anunturi/.+/anunt/.+\.html", re.IGNORECASE)
+    DETAIL_HREF_RE = re.compile(r"/anunt/.+\.html", re.IGNORECASE)
 
     def __init__(self, http: HttpClient):
         super().__init__(http)
@@ -62,6 +62,7 @@ class Publi24Scraper(SiteScraper):
             if self.DETAIL_HREF_RE.search(href):
                 abs_url = to_absolute_url(self.BASE_URL, href)
                 if abs_url:
+                    abs_url = abs_url.split("#", 1)[0].split("?", 1)[0]
                     urls.add(abs_url)
 
         return sorted(urls)

@@ -8,10 +8,11 @@ from app.core.http import HttpClient
 from app.pipeline import run_and_store
 from app.storage.sqlite import SqliteStore
 from app.sites.publi24 import Publi24Scraper
+from app.sites.pcgarage import PcGarageScraper
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Licenta 2026 - Market scraper")
-    parser.add_argument("site", choices=["publi24"], help="Source website to scrape")
+    parser.add_argument("site", choices=["publi24", "pcgarage"], help="Source website to scrape")
     parser.add_argument("--category", default="laptopuri", help="Internal category name")
     parser.add_argument("--pages", type=int, default=1, help="Number of listing pages")
     parser.add_argument("--max-products", type=int, default=None, help="Safety limit")
@@ -34,6 +35,23 @@ def main():
             stats = run_and_store(
                 site_scraper=scraper,
                 site_name="publi24",
+                category=args.category,
+                max_pages=args.pages,
+                max_products=args.max_products,
+                db_path=args.db,
+            )
+        elif args.site == "pcgarage":
+            # WARM-UP REQUEST (important pentru 403)
+            try:
+                http.get("https://www.pcgarage.ro/")
+            except Exception:
+                pass
+
+            scraper = PcGarageScraper(http)
+
+            stats = run_and_store(
+                site_scraper=scraper,
+                site_name="pcgarage",
                 category=args.category,
                 max_pages=args.pages,
                 max_products=args.max_products,
