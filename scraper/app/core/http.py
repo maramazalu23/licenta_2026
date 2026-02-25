@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 import time
-import gzip
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 from urllib.parse import urlsplit
@@ -11,6 +10,11 @@ import requests
 from app.config.base import HTTP
 
 import atexit
+
+import os
+import re
+import gzip
+from collections import defaultdict
 
 try:
     from playwright.sync_api import sync_playwright
@@ -24,6 +28,42 @@ class FetchResult:
     status_code: int
     text: str
     elapsed_ms: int
+
+POLICIES = {
+    "pcgarage.ro": {
+        "strategy": "JS_REQUIRED",     # dacă 403 -> JS imediat
+        "timeout_s": 30,
+        "min_len": 30_000,
+        "must_contain": "/notebook-laptop/",
+        "fail_threshold": 1,
+    },
+    "publi24.ro": {
+        "strategy": "JS_IF_SHELL",     # încearcă requests, apoi JS dacă pare shell/challenge
+        "timeout_s": 20,
+        "min_len": 15_000,
+        "must_contain": "/anunt/",
+        "fail_threshold": 2,
+    },
+    "default": {
+        "strategy": "REQUESTS_ONLY",
+        "timeout_s": 15,
+        "min_len": 10_000,
+        "must_contain": None,
+        "fail_threshold": 3,
+    },
+}
+
+BLOCKED_TITLE_PATTERNS = [
+    r"just a moment",
+    r"attention required",
+    r"access denied",
+    r"forbidden",
+    r"are you a human",
+    r"captcha",
+    r"please enable cookies",
+]
+BLOCKED_TITLE_RE = re.compile("|".join(BLOCKED_TITLE_PATTERNS), re.IGNORECASE)
+TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 
 
 class HttpClient:
@@ -56,10 +96,54 @@ class HttpClient:
         self._browser = None
         self._context_by_domain = {}
         atexit.register(self.close)
+        self.js_mode_domains = set()              # domenii promovate la JS în acest run
+        self.failure_counter = defaultdict(int)   # eșecuri consecutive pe requests
 
     def polite_sleep(self):
         """Pauză variabilă pentru a imita comportamentul uman."""
         time.sleep(random.uniform(HTTP.min_delay_s, HTTP.max_delay_s))
+
+    def _get_policy(self, domain: str) -> Dict[str, Any]:
+        # map netloc la domeniul de policy (ex: www.pcgarage.ro -> pcgarage.ro)
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return POLICIES.get(domain, POLICIES["default"])
+
+    def _extract_title(self, html: str) -> str:
+        m = TITLE_RE.search(html or "")
+        if not m:
+            return ""
+        return re.sub(r"\s+", " ", m.group(1)).strip().lower()
+
+    def _looks_blocked(self, html: str) -> bool:
+        title = self._extract_title(html)
+        if title and BLOCKED_TITLE_RE.search(title):
+            return True
+        low = (html or "").lower()
+        # indicatori generali de challenge
+        if "cloudflare" in low or "challenge" in low or "cf-" in low and "captcha" in low:
+            return True
+        return False
+
+    def _looks_shell_or_bad(self, policy: Dict[str, Any], html: str) -> bool:
+        if not html:
+            return True
+        low = html.lower()
+
+        # dacă pare blocat după title/keywords
+        if self._looks_blocked(html):
+            return True
+
+        must = policy.get("must_contain")
+        if must and must.lower() not in low:
+            return True
+
+        min_len = policy.get("min_len")
+        if min_len and len(html) < int(min_len):
+            # semnal slab, dar util ca backup
+            return True
+
+        return False
 
     def get(self, url: str, params: Optional[Dict[str, Any]] = None) -> FetchResult:
         last_exc = None
@@ -67,55 +151,69 @@ class HttpClient:
             start = time.time()
             try:
                 parts = urlsplit(url)
-                base_referer = f"{parts.scheme}://{parts.netloc}/"
+                domain = parts.netloc.lower()
+                if domain.startswith("www."):
+                    domain = domain[4:]
 
+                policy = self._get_policy(domain)
+
+                # dacă domeniul e deja în JS mode în run-ul curent, nu mai încerca requests
+                if domain in self.js_mode_domains and policy.get("strategy") != "REQUESTS_ONLY":
+                    return self.get_js(url, params=params)
+
+                base_referer = f"{parts.scheme}://{parts.netloc}/"
                 headers = dict(self.session.headers)
                 headers["Referer"] = base_referer
 
-                resp = self.session.get(url, params=params, headers=headers, timeout=HTTP.timeout_s)
+                timeout_s = policy.get("timeout_s", HTTP.timeout_s)
 
-                if resp.encoding is None or resp.encoding == "ISO-8859-1":
-                    resp.encoding = resp.apparent_encoding
+                resp = self.session.get(url, params=params, headers=headers, timeout=timeout_s)
 
-                elapsed_ms = int((time.time() - start) * 1000)
-
-                # 1. Verificăm dacă suntem blocați (403) pe PC Garage
-                if resp.status_code == 403 and "pcgarage.ro" in url:
-                    print(f"[http] 403 la {url} -> retry cu Playwright...")
-                    return self.get_js(url, params=params)
-
-                # 2. Extragem textul
-                text = resp.text
-
+                # rate-limit handling (reintrodus)
                 if resp.status_code in (429, 503):
+                    self.failure_counter[domain] += 1
                     backoff = HTTP.backoff_base_s * (2 ** (attempt - 1))
                     print(f"Rate limited ({resp.status_code}) la {url}. Retry {attempt} după {backoff}s...")
                     time.sleep(backoff)
                     continue
 
-                # 3. Fallback pentru Publi24 (pagini shell sau compresie defectuoasă)
-                if "publi24.ro" in url and resp.status_code == 200:
-                    # 1) dacă textul nu pare HTML, încearcă reparare gzip manual
-                    if text and "<html" not in text.lower():
-                        raw = resp.content
-                        if raw[:2] == b"\x1f\x8b":
-                            try:
-                                text = gzip.decompress(raw).decode(resp.apparent_encoding or "utf-8", errors="replace")
-                            except Exception as e:
-                                print(f"[http] Eroare decompresie manuală: {e}")
+                # PCGarage: 403 -> JS imediat
+                if resp.status_code == 403 and domain == "pcgarage.ro":
+                    self.failure_counter[domain] += 1
+                    self.js_mode_domains.add(domain)
+                    print(f"[http] 403 la {url} -> JS mode pentru {domain} (Playwright)")
+                    return self.get_js(url, params=params)
 
-                    # 2) dacă tot nu avem linkuri de anunț, e “shell/JS” -> Playwright
-                    if "/anunt/" not in text.lower():
-                        print(f"[http] Publi24 suspect HTML (no /anunt/). Retry cu Playwright: {url}")
-                        return self.get_js(url, params=params)
+                # text normal
+                if resp.encoding is None or resp.encoding == "ISO-8859-1":
+                    resp.encoding = resp.apparent_encoding
 
-                return FetchResult(
-                    url=url,
-                    status_code=resp.status_code,
-                    text=text,
-                    elapsed_ms=elapsed_ms,
-                )
+                text = resp.text
 
+                # fallback gzip manual doar dacă nu pare HTML (rar)
+                if resp.status_code == 200 and text and "<html" not in text.lower():
+                    raw = resp.content
+                    if raw[:2] == b"\x1f\x8b":
+                        try:
+                            text = gzip.decompress(raw).decode(resp.apparent_encoding or "utf-8", errors="replace")
+                        except Exception:
+                            pass
+
+                # Publi24 / general: detect shell/blocked -> comută la JS după threshold
+                if resp.status_code == 200 and policy.get("strategy") == "JS_IF_SHELL":
+                    if self._looks_shell_or_bad(policy, text):
+                        self.failure_counter[domain] += 1
+                        if self.failure_counter[domain] >= int(policy.get("fail_threshold", 2)):
+                            self.js_mode_domains.add(domain)
+                            print(f"[http] Switch JS mode pentru {domain} (failures={self.failure_counter[domain]}): {url}")
+                            return self.get_js(url, params=params)
+
+                # dacă requests a mers bine, resetăm failures
+                self.failure_counter[domain] = 0
+
+                elapsed_ms = int((time.time() - start) * 1000)
+                return FetchResult(url=url, status_code=resp.status_code, text=text, elapsed_ms=elapsed_ms)
+            
             except requests.RequestException as e:
                 last_exc = e
                 backoff = HTTP.backoff_base_s * (2 ** (attempt - 1))
@@ -157,7 +255,10 @@ class HttpClient:
             url = f"{url}{sep}{urlencode(params)}"
 
         start = time.time()
-        domain = "pcgarage.ro" if "pcgarage.ro" in url else ("publi24.ro" if "publi24.ro" in url else "default")
+        parts = urlsplit(url)
+        domain = parts.netloc.lower()
+        if domain.startswith("www."):
+            domain = domain[4:]
         ctx = self._get_context(domain)
         page = ctx.new_page()
         page.route("**/*", lambda route, request: route.abort()
@@ -165,7 +266,7 @@ class HttpClient:
                 else route.continue_())
 
         try:
-            resp = page.goto(url, wait_until="domcontentloaded", timeout=HTTP.timeout_s * 1000)
+            resp = page.goto(url, wait_until="domcontentloaded", timeout=HTTP.timeout_s * 1000, )
             # uneori challenge-ul cere puțin timp
             page.wait_for_timeout(1200)
 

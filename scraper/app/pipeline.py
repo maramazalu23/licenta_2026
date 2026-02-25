@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 import time # Adăugat pentru cronometrare
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ from typing import List, Optional
 from app.models import Product
 from app.storage.sqlite import SqliteStore
 from app.sites.base import SiteScraper
+from app.filters import is_valid_publi24_laptop
 
 @dataclass
 class RunStats:
@@ -21,6 +23,7 @@ class RunStats:
     products_parsed: int = 0
     products_saved: int = 0
     errors: int = 0
+    products_filtered: int = 0
 
 def run_scrape(
     site: SiteScraper,
@@ -58,6 +61,11 @@ def run_scrape(
             detail_urls = site.parse_listing_page(listing_res.text)
 
             if not detail_urls:
+                os.makedirs("debug", exist_ok=True)
+                debug_path = os.path.join("debug", f"{site_name}_listing_empty_{run_id}_p{li}.html")
+                with open(debug_path, "w", encoding="utf-8") as f:
+                    f.write(listing_res.text)
+                print(f"[debug] Saved empty listing HTML to: {debug_path}")
                 continue
 
             print(f"[{site_name}] Page {li}/{len(listing_urls)}: Found {len(detail_urls)} items")
@@ -82,34 +90,9 @@ def run_scrape(
 
                     # Filtru MVP pentru Publi24: eliminăm accesorii din categoria "laptopuri"
                     if site_name == "publi24" and category == "laptopuri":
-                        t = (p.title or "").lower()
-                        banned = [
-                            # accesorii
-                            "baterie", "incarcator", "alimentator", "display", "ecran",
-                            "husa", "cooler", "stand", "tastatura", "mouse",
-                            "cablu", "ram", "ssd", "hard disk", "hdd", "placa video",
-                            "placa baza", "motherboard", "carcasa", "piese",
-
-                            # alte dispozitive
-                            "tableta", "tablet", "ipad", "chromebook",
-                            "telefon", "smartphone", "monitor",
-                            "mini pc", "desktop", "unitate centrala"
-                        ]
-
-                        # dacă conține banned → skip
-                        if any(b in t for b in banned):
-                            continue
-
-                        # trebuie să conțină măcar unul din indicatorii de laptop real
-                        allowed_indicators = [
-                            "laptop", "notebook", "ultrabook",
-                            "macbook", "thinkpad", "vivobook",
-                            "ideapad", "latitude", "probook",
-                            "rog", "aspire", "yoga"
-                        ]
-
-                        if not any(a in t for a in allowed_indicators):
-                            continue
+                            if not is_valid_publi24_laptop(p.title, p.description_text, p.url):
+                                stats.products_filtered += 1
+                                continue
 
                     p.source = site_name
                     p.http_status = detail_res.status_code

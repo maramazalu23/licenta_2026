@@ -4,6 +4,7 @@ __pycache__/
 data_out/scraper.db
 data_out/raw/
 logs/
+debug/
 .venv/
 .vscode/
 .idea/
