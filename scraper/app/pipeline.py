@@ -4,6 +4,7 @@ import os
 import uuid
 import time # Adăugat pentru cronometrare
 import logging
+from pathlib import Path
 
 from app.config.base import BASE_DIR
 from dataclasses import dataclass
@@ -11,9 +12,11 @@ from typing import List, Optional
 from app.models import Product
 from app.storage.sqlite import SqliteStore
 from app.sites.base import SiteScraper
-from app.filters import is_valid_publi24_laptop
 
 logger = logging.getLogger("scraper.pipeline")
+
+DEBUG_DIR = Path(BASE_DIR) / "data_out" / "debug"
+DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class RunStats:
@@ -67,12 +70,6 @@ def run_scrape(
             detail_urls = site.parse_listing_page(listing_res.text)
 
             if not detail_urls:
-                # debug: salvează HTML listing într-un folder stabil
-                from pathlib import Path
-
-                DEBUG_DIR = Path(BASE_DIR) / "data_out" / "debug"
-                DEBUG_DIR.mkdir(parents=True, exist_ok=True)
-
                 debug_path = DEBUG_DIR / f"{site_name}_listing_empty_{run_id}_p{li}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
                     f.write(listing_res.text)
@@ -99,11 +96,18 @@ def run_scrape(
                     # Aici se produce magia: Parser + Pydantic Validation
                     p = site.parse_detail_page(detail_res.text, url=durl, category=category)
 
-                    # Filtru MVP pentru Publi24: eliminăm accesorii din categoria "laptopuri"
-                    if site_name == "publi24" and category == "laptopuri":
-                        if not is_valid_publi24_laptop(p.title, p.description_text, p.url):
-                            stats.products_filtered += 1
-                            continue
+                    # Filtrare site-specific (implementată în scraper; default True)
+                    try:
+                        keep = site.filter_product(p)
+                    except Exception as e:
+                        stats.errors += 1
+                        logger.warning("Filter error for %s: %s: %s", p.url, type(e).__name__, e)
+                        keep = False
+
+                    if not keep:
+                        # IMPORTANT: trebuie să existe în RunStats (dacă nu, îl adăugăm la pasul următor)
+                        stats.products_filtered += 1
+                        continue
 
                     p.source = site_name
                     p.http_status = detail_res.status_code
@@ -150,9 +154,9 @@ def run_and_store(
         stats.products_inserted = inserted
         stats.products_updated = updated
 
-        print(
-            f"--- Finished: Upserted {upserted}/{len(products)} "
-            f"(inserted={inserted}, updated={updated}) in {stats.duration_s}s ---"
+        logger.info(
+            "--- Finished: Upserted %s/%s (inserted=%s, updated=%s) in %ss ---",
+            upserted, len(products), inserted, updated, stats.duration_s
         )
     else:
         logger.warning("--- Finished: No products were found/parsed. ---")

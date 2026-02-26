@@ -10,7 +10,7 @@ from app.core.http import HttpClient
 from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn
 from app.models import Product
 from app.sites.base import SiteScraper
-
+from app.filters import is_valid_publi24_laptop
 
 class Publi24Scraper(SiteScraper):
     """
@@ -118,6 +118,15 @@ class Publi24Scraper(SiteScraper):
             mpn_guess=mpn,
             specs_raw=specs_raw or None,
         )
+    
+    def filter_product(self, product: "Product") -> bool:
+        # Filtrare doar pentru laptopuri (cum ai avut în pipeline)
+        if product.category != "laptopuri":
+            return True
+
+        title = product.title or ""
+        desc = product.description_text or ""
+        return is_valid_publi24_laptop(title, desc, product.url)
 
     # -------------------
     # Helpers
