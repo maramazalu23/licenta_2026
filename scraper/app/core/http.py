@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import random
 import time
+import requests
+import atexit
+import re
+import gzip
+import logging
+
+from collections import defaultdict
+from app.config.base import HTTP
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 from urllib.parse import urlsplit
 
-import requests
-from app.config.base import HTTP
-
-import atexit
-
-import os
-import re
-import gzip
-from collections import defaultdict
+logger = logging.getLogger("scraper.http")
 
 try:
     from playwright.sync_api import sync_playwright
@@ -174,7 +174,7 @@ class HttpClient:
                 if resp.status_code in (429, 503):
                     self.failure_counter[domain] += 1
                     backoff = HTTP.backoff_base_s * (2 ** (attempt - 1))
-                    print(f"Rate limited ({resp.status_code}) la {url}. Retry {attempt} după {backoff}s...")
+                    logger.warning("Rate limited (%s) la %s. Retry %s după %ss...", resp.status_code, url, attempt, backoff)
                     time.sleep(backoff)
                     continue
 
@@ -182,7 +182,7 @@ class HttpClient:
                 if resp.status_code == 403 and domain == "pcgarage.ro":
                     self.failure_counter[domain] += 1
                     self.js_mode_domains.add(domain)
-                    print(f"[http] 403 la {url} -> JS mode pentru {domain} (Playwright)")
+                    logger.warning("[http] 403 la %s -> JS mode pentru %s (Playwright)", url, domain)
                     return self.get_js(url, params=params)
 
                 # text normal
@@ -206,7 +206,7 @@ class HttpClient:
                         self.failure_counter[domain] += 1
                         if self.failure_counter[domain] >= int(policy.get("fail_threshold", 2)):
                             self.js_mode_domains.add(domain)
-                            print(f"[http] Switch JS mode pentru {domain} (failures={self.failure_counter[domain]}): {url}")
+                            logger.warning("[http] Switch JS mode pentru %s (failures=%s): %s", domain, self.failure_counter[domain], url)
                             return self.get_js(url, params=params)
 
                 # dacă requests a mers bine, resetăm failures
@@ -218,7 +218,7 @@ class HttpClient:
             except requests.RequestException as e:
                 last_exc = e
                 backoff = HTTP.backoff_base_s * (2 ** (attempt - 1))
-                print(f"Eroare rețea la {url}: {e}. Retry în {backoff}s...")
+                logger.warning("Eroare rețea la %s: %s. Retry în %ss...", url, e, backoff)
                 time.sleep(backoff)
 
         raise RuntimeError(f"GET failed after {HTTP.max_retries} retries for {url}: {last_exc}")

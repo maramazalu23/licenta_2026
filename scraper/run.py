@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import argparse
 import sys # Adăugat pentru exit controlat
+import os
+import logging
 
+from app.core.logging import setup_logging
+from app.config.base import BASE_DIR
 from app.core.http import HttpClient
 from app.pipeline import run_and_store
 from app.storage.sqlite import SqliteStore
@@ -22,6 +26,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main():
     parser = build_parser()
     args = parser.parse_args()
+    # Logging (salvează în scraper/logs/scraper.log)
+    log_dir = os.path.join(BASE_DIR, "logs")
+    setup_logging(log_dir=log_dir)
+    logger = logging.getLogger("scraper")
     if args.pages < 1:
         raise ValueError("--pages must be >= 1")
     if args.max_products is not None and args.max_products < 1:
@@ -44,8 +52,8 @@ def main():
             # WARM-UP REQUEST (important pentru 403)
             try:
                 http.get("https://www.pcgarage.ro/")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Warm-up PCGarage eșuat: %s: %s", type(e).__name__, e)
 
             scraper = PcGarageScraper(http)
 
@@ -65,24 +73,26 @@ def main():
         total = store.count_products()
         
         print("\n=== RUN SUMMARY ===")
-        print(f"run_id:         {stats.scrape_run_id}")
-        print(f"site:           {stats.site_name}")
-        print(f"category:       {stats.category}")
-        print(f"pages_ok:       {stats.listing_pages_ok}/{stats.pages_requested}")
-        print(f"detail_ok:      {stats.detail_pages_ok}")
-        print(f"parsed:         {stats.products_parsed}")
-        print(f"upserted:       {stats.products_upserted}")
-        print(f"inserted:       {stats.products_inserted}")
-        print(f"updated:        {stats.products_updated}")
-        print(f"errors:         {stats.errors}")
-        print(f"duration_s:     {stats.duration_s}")
-        print(f"db_total_rows:  {total}")
+        logger.info("=== RUN SUMMARY ===")
+        logger.info("run_id:         %s", stats.scrape_run_id)
+        logger.info("site:           %s", stats.site_name)
+        logger.info("category:       %s", stats.category)
+        logger.info("pages_ok:       %s/%s", stats.listing_pages_ok, stats.pages_requested)
+        logger.info("detail_ok:      %s", stats.detail_pages_ok)
+        logger.info("parsed:         %s", stats.products_parsed)
+        logger.info("filtered:       %s", getattr(stats, "products_filtered", 0))
+        logger.info("upserted:       %s", stats.products_upserted)
+        logger.info("inserted:       %s", stats.products_inserted)
+        logger.info("updated:        %s", stats.products_updated)
+        logger.info("errors:         %s", stats.errors)
+        logger.info("duration_s:     %s", stats.duration_s)
+        logger.info("db_total_rows:  %s", total)
 
     except KeyboardInterrupt:
-        print("\n[!] Scraper oprit manual de utilizator (Ctrl+C).")
+        logger.warning("Scraper oprit manual de utilizator (Ctrl+C).")
         sys.exit(0)
     except Exception as e:
-        print(f"\n[!] Eroare critică la rulare: {type(e).__name__}: {e}")
+        logger.exception("Eroare critică la rulare: %s: %s", type(e).__name__, e)
         sys.exit(1)
 
 if __name__ == "__main__":

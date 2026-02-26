@@ -3,13 +3,17 @@ from __future__ import annotations
 import os
 import uuid
 import time # Adăugat pentru cronometrare
+import logging
+
+from app.config.base import BASE_DIR
 from dataclasses import dataclass
 from typing import List, Optional
-
 from app.models import Product
 from app.storage.sqlite import SqliteStore
 from app.sites.base import SiteScraper
 from app.filters import is_valid_publi24_laptop
+
+logger = logging.getLogger("scraper.pipeline")
 
 @dataclass
 class RunStats:
@@ -47,7 +51,7 @@ def run_scrape(
     products: List[Product] = []
     listing_urls = list(site.iter_listing_urls(category=category, max_pages=max_pages))
 
-    print(f"--- Starting Scrape Run [{run_id}] for {site_name} ---")
+    logger.info("--- Starting Scrape Run [%s] for %s ---", run_id, site_name)
 
     for li, listing_url in enumerate(listing_urls, start=1):
         try:
@@ -56,7 +60,7 @@ def run_scrape(
 
             if listing_res.status_code != 200:
                 stats.errors += 1
-                print(f"[{site_name}] Listing page FAIL {listing_res.status_code}: {listing_url}")
+                logger.warning("[%s] Listing page FAIL %s: %s", site_name, listing_res.status_code, listing_url)
                 continue
 
             stats.listing_pages_ok += 1
@@ -66,16 +70,16 @@ def run_scrape(
                 # debug: salvează HTML listing într-un folder stabil
                 from pathlib import Path
 
-                DEBUG_DIR = Path("data_out") / "debug"
+                DEBUG_DIR = Path(BASE_DIR) / "data_out" / "debug"
                 DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 
                 debug_path = DEBUG_DIR / f"{site_name}_listing_empty_{run_id}_p{li}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
                     f.write(listing_res.text)
 
-                print(f"[debug] Saved empty listing HTML to: {debug_path}")
+                logger.info("[debug] Saved empty listing HTML to: %s", debug_path)
 
-            print(f"[{site_name}] Page {li}/{len(listing_urls)}: Found {len(detail_urls)} items")
+            logger.info("[%s] Page %s/%s: Found %s items", site_name, li, len(listing_urls), len(detail_urls))
 
             for durl in detail_urls:
                 if max_products is not None and len(products) >= max_products:
@@ -110,16 +114,16 @@ def run_scrape(
                     stats.products_parsed += 1
 
                     if stats.products_parsed % 5 == 0:
-                        print(f"   > Parsed {stats.products_parsed} products...")
+                        logger.info("   > Parsed %s products...", stats.products_parsed)
 
                 except Exception as e:
                     stats.errors += 1
-                    print(f"   ! Error parsing {durl}: {type(e).__name__}: {e}")
+                    logger.warning("   ! Error parsing %s: %s: %s", durl, type(e).__name__, e)
 
         except Exception as e:
             stats.errors += 1
-            print(f"!!! Critical Listing Error: {type(e).__name__}: {e}")
-
+            logger.exception("!!! Critical Listing Error: %s: %s", type(e).__name__, e)
+        
     stats.duration_s = round(time.time() - start_time, 2)
     return products, stats
 
@@ -151,6 +155,6 @@ def run_and_store(
             f"(inserted={inserted}, updated={updated}) in {stats.duration_s}s ---"
         )
     else:
-        print("--- Finished: No products were found/parsed. ---")
+        logger.warning("--- Finished: No products were found/parsed. ---")
         
     return stats
