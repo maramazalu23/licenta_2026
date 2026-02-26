@@ -21,7 +21,9 @@ class RunStats:
     listing_pages_ok: int = 0
     detail_pages_ok: int = 0
     products_parsed: int = 0
-    products_saved: int = 0
+    products_upserted: int = 0
+    products_inserted: int = 0
+    products_updated: int = 0
     errors: int = 0
     products_filtered: int = 0
 
@@ -61,12 +63,17 @@ def run_scrape(
             detail_urls = site.parse_listing_page(listing_res.text)
 
             if not detail_urls:
-                os.makedirs("debug", exist_ok=True)
-                debug_path = os.path.join("debug", f"{site_name}_listing_empty_{run_id}_p{li}.html")
+                # debug: salvează HTML listing într-un folder stabil
+                from pathlib import Path
+
+                DEBUG_DIR = Path("data_out") / "debug"
+                DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+
+                debug_path = DEBUG_DIR / f"{site_name}_listing_empty_{run_id}_p{li}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
                     f.write(listing_res.text)
+
                 print(f"[debug] Saved empty listing HTML to: {debug_path}")
-                continue
 
             print(f"[{site_name}] Page {li}/{len(listing_urls)}: Found {len(detail_urls)} items")
 
@@ -90,9 +97,9 @@ def run_scrape(
 
                     # Filtru MVP pentru Publi24: eliminăm accesorii din categoria "laptopuri"
                     if site_name == "publi24" and category == "laptopuri":
-                            if not is_valid_publi24_laptop(p.title, p.description_text, p.url):
-                                stats.products_filtered += 1
-                                continue
+                        if not is_valid_publi24_laptop(p.title, p.description_text, p.url):
+                            stats.products_filtered += 1
+                            continue
 
                     p.source = site_name
                     p.http_status = detail_res.status_code
@@ -134,9 +141,15 @@ def run_and_store(
 
     if products:
         store = SqliteStore(db_path=db_path) if db_path else SqliteStore()
-        saved = store.upsert_products(products)
-        stats.products_saved = saved
-        print(f"--- Finished: Saved {saved}/{len(products)} products in {stats.duration_s}s ---")
+        upserted, inserted, updated = store.upsert_products(products)
+        stats.products_upserted = upserted
+        stats.products_inserted = inserted
+        stats.products_updated = updated
+
+        print(
+            f"--- Finished: Upserted {upserted}/{len(products)} "
+            f"(inserted={inserted}, updated={updated}) in {stats.duration_s}s ---"
+        )
     else:
         print("--- Finished: No products were found/parsed. ---")
         

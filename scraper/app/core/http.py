@@ -156,10 +156,11 @@ class HttpClient:
                     domain = domain[4:]
 
                 policy = self._get_policy(domain)
+                timeout_s = policy.get("timeout_s", HTTP.timeout_s)
 
                 # dacă domeniul e deja în JS mode în run-ul curent, nu mai încerca requests
                 if domain in self.js_mode_domains and policy.get("strategy") != "REQUESTS_ONLY":
-                    return self.get_js(url, params=params)
+                    return self.get_js(url, params=params, timeout_s=timeout_s)
 
                 base_referer = f"{parts.scheme}://{parts.netloc}/"
                 headers = dict(self.session.headers)
@@ -247,26 +248,45 @@ class HttpClient:
             self._context_by_domain[domain] = ctx
         return ctx
 
-    def get_js(self, url: str, params: Optional[Dict[str, Any]] = None) -> FetchResult:
+    def get_js(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+        timeout_s: int | float | None = None,
+    ) -> FetchResult:
         # params (query string) - le atașăm manual dacă există
         if params:
             from urllib.parse import urlencode
             sep = "&" if "?" in url else "?"
-            url = f"{url}{sep}{urlencode(params)}"
+            url = f"{url}{sep}{urlencode(params, doseq=True)}"
+
+        if timeout_s is None:
+            timeout_s = HTTP.timeout_s
 
         start = time.time()
         parts = urlsplit(url)
         domain = parts.netloc.lower()
         if domain.startswith("www."):
             domain = domain[4:]
+
         ctx = self._get_context(domain)
         page = ctx.new_page()
-        page.route("**/*", lambda route, request: route.abort()
-                if request.resource_type in ("image", "media", "font")
-                else route.continue_())
+
+        # blocăm resurse grele (mai rapid + mai puține șanse de anti-bot)
+        page.route(
+            "**/*",
+            lambda route, request: route.abort()
+            if request.resource_type in ("image", "media", "font")
+            else route.continue_(),
+        )
 
         try:
-            resp = page.goto(url, wait_until="domcontentloaded", timeout=HTTP.timeout_s * 1000, )
+            resp = page.goto(
+                url,
+                wait_until="domcontentloaded",
+                timeout=int(float(timeout_s) * 1000),
+            )
+
             # uneori challenge-ul cere puțin timp
             page.wait_for_timeout(1200)
 

@@ -257,7 +257,62 @@ class PcGarageScraper(SiteScraper):
 
     @staticmethod
     def _extract_description(soup: BeautifulSoup) -> Tuple[Optional[str], Optional[str]]:
-        desc_node = soup.select_one("#product-description-container") or soup.select_one(".product-description")
-        if desc_node:
-            return clean_text(desc_node.get_text(" ", strip=True)), str(desc_node)
+        # 1) încearcă din JSON-LD (de obicei are description la Product)
+        try:
+            for obj in PcGarageScraper._iter_jsonld_objects(soup):
+                # uneori e @graph
+                stack = [obj]
+                while stack:
+                    o = stack.pop()
+                    if isinstance(o, dict):
+                        t = o.get("@type") or ""
+                        if isinstance(t, list):
+                            t = " ".join(map(str, t))
+                        if "product" in str(t).lower():
+                            d = o.get("description")
+                            if d:
+                                d_clean = clean_text(str(d))
+                                if d_clean:
+                                    return d_clean, None
+                        if "@graph" in o and isinstance(o["@graph"], list):
+                            stack.extend(o["@graph"])
+                    elif isinstance(o, list):
+                        stack.extend(o)
+        except Exception:
+            pass
+
+        # 2) meta description / og:description (fallback decent)
+        for meta in (
+            soup.find("meta", attrs={"property": "og:description"}),
+            soup.find("meta", attrs={"name": "description"}),
+        ):
+            if meta and meta.get("content"):
+                d = clean_text(meta.get("content"))
+                if d:
+                    return d, None
+
+        # 3) containere HTML (mai multe variante posibile)
+        selectors = [
+            "#product-description-container",
+            "#product_description",
+            "#tab-description",
+            "#tab_descriere",
+            "#descriere",
+            ".product-description",
+            ".produsDescriere",
+            ".product-info-description",
+            ".product_info_description",
+            ".tab-content .description",
+            ".tab-pane#description",
+            ".tab-pane#descriere",
+        ]
+
+        for sel in selectors:
+            node = soup.select_one(sel)
+            if node:
+                txt = clean_text(node.get_text(" ", strip=True))
+                html = str(node)
+                if txt:
+                    return txt, html
+
         return None, None

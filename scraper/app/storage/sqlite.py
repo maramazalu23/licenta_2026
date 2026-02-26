@@ -72,18 +72,54 @@ class SqliteStore:
                 conn.execute(stmt)
             conn.commit()
 
-    def upsert_products(self, products: Iterable[Product]) -> int:
-        rows = 0
+    def upsert_products(self, products: Iterable[Product]) -> tuple[int, int, int]:
+        """
+        Returnează: (upserted_total, inserted, updated)
+
+        Optimizare:
+        - preluăm toate URL-urile existente din DB într-un singur SELECT (chunked),
+        ca să evităm SELECT per produs.
+        """
+        products_list = list(products)
+        if not products_list:
+            return 0, 0, 0
+
+        upserted = 0
+        inserted = 0
+        updated = 0
+
+        urls = [str(p.url) for p in products_list]
+
+        # SQLite are limită de variabile în query (de obicei 999).
+        # Lăsăm o marjă de siguranță.
+        CHUNK_SIZE = 800
+
+        def chunks(lst: list[str], size: int):
+            for i in range(0, len(lst), size):
+                yield lst[i : i + size]
+
         with self._connect() as conn:
             cur = conn.cursor()
 
-            for p in products:
+            # 1) Preluăm setul de URL-uri deja existente
+            existing_urls: set[str] = set()
+            for chunk in chunks(urls, CHUNK_SIZE):
+                placeholders = ",".join(["?"] * len(chunk))
+                cur.execute(
+                    f"SELECT url FROM products WHERE url IN ({placeholders});",
+                    chunk,
+                )
+                existing_urls.update(row[0] for row in cur.fetchall())
+
+            # 2) UPSERT pentru fiecare produs + numărătoare insert/update
+            for p in products_list:
                 specs_raw_str = json.dumps(p.specs_raw, ensure_ascii=False) if p.specs_raw else None
+                url_str = str(p.url)
 
                 params = (
                     p.source,
                     p.category,
-                    str(p.url),
+                    url_str,
                     p.scraped_at.isoformat(),
                     p.scrape_run_id,
                     p.title,
@@ -105,53 +141,46 @@ class SqliteStore:
                 cur.execute(
                     """
                     INSERT INTO products(
-                    source, category, url, scraped_at, scrape_run_id,
-                    title, price, currency, availability, location, posted_at,
-                    description_text, description_html,
-                    brand_guess, model_guess, mpn_guess,
-                    specs_raw,
-                    http_status, response_time_ms
+                        source, category, url, scraped_at, scrape_run_id,
+                        title, price, currency, availability, location, posted_at,
+                        description_text, description_html,
+                        brand_guess, model_guess, mpn_guess,
+                        specs_raw,
+                        http_status, response_time_ms
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(url) DO UPDATE SET
-                    scraped_at=excluded.scraped_at,
-                    scrape_run_id=excluded.scrape_run_id,
-                    title=excluded.title,
-                    price=excluded.price,
-                    currency=excluded.currency,
-                    availability=excluded.availability,
-                    location=excluded.location,
-                    posted_at=excluded.posted_at,
-                    description_text=excluded.description_text,
-                    description_html=excluded.description_html,
-                    brand_guess=excluded.brand_guess,
-                    model_guess=excluded.model_guess,
-                    mpn_guess=excluded.mpn_guess,
-                    specs_raw=excluded.specs_raw,
-                    http_status=excluded.http_status,
-                    response_time_ms=excluded.response_time_ms
+                        scraped_at=excluded.scraped_at,
+                        scrape_run_id=excluded.scrape_run_id,
+                        title=excluded.title,
+                        price=excluded.price,
+                        currency=excluded.currency,
+                        availability=excluded.availability,
+                        location=excluded.location,
+                        posted_at=excluded.posted_at,
+                        description_text=excluded.description_text,
+                        description_html=excluded.description_html,
+                        brand_guess=excluded.brand_guess,
+                        model_guess=excluded.model_guess,
+                        mpn_guess=excluded.mpn_guess,
+                        specs_raw=excluded.specs_raw,
+                        http_status=excluded.http_status,
+                        response_time_ms=excluded.response_time_ms
                     """,
                     params,
                 )
-                rows += 1
+
+                upserted += 1
+                if url_str in existing_urls:
+                    updated += 1
+                else:
+                    inserted += 1
 
             conn.commit()
-        return rows
 
+        return upserted, inserted, updated
+    
     def count_products(self) -> int:
-        conn = self._connect()
-        try:
-            cur = conn.execute("SELECT COUNT(*) FROM products;")
-            return int(cur.fetchone()[0])
-        finally:
-            conn.close()
-
-    def sample_products(self, limit: int = 5) -> list[tuple[str, Optional[str], str]]:
-        """Returnează (title, price, url) pentru verificare rapidă."""
         with self._connect() as conn:
-            cur = conn.execute(
-                "SELECT title, price, url FROM products ORDER BY scraped_at DESC LIMIT ?;",
-                (limit,),
-            )
-            rows = cur.fetchall()
-            # convertim sqlite3.Row -> tuple clasic
-            return [(r["title"], r["price"], r["url"]) for r in rows]
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM products;")
+            return int(cur.fetchone()[0])

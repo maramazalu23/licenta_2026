@@ -3,3 +3,4 @@ beautifulsoup4
 lxml
 pydantic
 python-dateutil
+playwright>=1.45.0
