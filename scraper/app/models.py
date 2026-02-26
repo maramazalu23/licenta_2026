@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
+
 from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Optional, Literal, Dict, Any
-import re
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
+from datetime import datetime, timezone
 
 SourceType = Literal["publi24", "pcgarage", "cel", "okazii"]
 CurrencyType = Literal["RON"]  # păstrăm simplu în MVP
@@ -18,7 +20,7 @@ class Product(BaseModel):
     source: SourceType
     category: str
     url: str  # mai permisiv decât HttpUrl (mai safe pt scraping)
-    scraped_at: datetime = Field(default_factory=datetime.utcnow)
+    scraped_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     scrape_run_id: Optional[str] = None
 
     # --- Conținut Principal ---
@@ -53,7 +55,7 @@ class Product(BaseModel):
 
     @field_validator("price", mode="before")
     @classmethod
-    def normalize_price(cls, v: Any) -> Optional[str]:
+    def normalize_price(cls, v: Any) -> Optional[Decimal]:
         if v is None:
             return None
 
@@ -79,4 +81,4 @@ class Product(BaseModel):
             return None
 
         d = d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        return str(d)
+        return d

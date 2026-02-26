@@ -8,6 +8,7 @@ import re
 import gzip
 import logging
 
+from app.config.sites import POLICIES
 from collections import defaultdict
 from app.config.base import HTTP
 from dataclasses import dataclass
@@ -28,30 +29,6 @@ class FetchResult:
     status_code: int
     text: str
     elapsed_ms: int
-
-POLICIES = {
-    "pcgarage.ro": {
-        "strategy": "JS_REQUIRED",     # dacă 403 -> JS imediat
-        "timeout_s": 30,
-        "min_len": 30_000,
-        "must_contain": "/notebook-laptop/",
-        "fail_threshold": 1,
-    },
-    "publi24.ro": {
-        "strategy": "JS_IF_SHELL",     # încearcă requests, apoi JS dacă pare shell/challenge
-        "timeout_s": 20,
-        "min_len": 15_000,
-        "must_contain": "/anunt/",
-        "fail_threshold": 2,
-    },
-    "default": {
-        "strategy": "REQUESTS_ONLY",
-        "timeout_s": 15,
-        "min_len": 10_000,
-        "must_contain": None,
-        "fail_threshold": 3,
-    },
-}
 
 BLOCKED_TITLE_PATTERNS = [
     r"just a moment",
@@ -90,14 +67,13 @@ class HttpClient:
             "sec-ch-ua-platform": '"Windows"',
         })
 
-        
-
         self._pw = None
         self._browser = None
         self._context_by_domain = {}
         atexit.register(self.close)
         self.js_mode_domains = set()              # domenii promovate la JS în acest run
         self.failure_counter = defaultdict(int)   # eșecuri consecutive pe requests
+        self._closed = False
 
     def polite_sleep(self):
         """Pauză variabilă pentru a imita comportamentul uman."""
@@ -121,7 +97,7 @@ class HttpClient:
             return True
         low = (html or "").lower()
         # indicatori generali de challenge
-        if "cloudflare" in low or "challenge" in low or "cf-" in low and "captcha" in low:
+        if "cloudflare" in low or "challenge" in low or ("cf-" in low and "captcha" in low):
             return True
         return False
 
@@ -165,8 +141,6 @@ class HttpClient:
                 base_referer = f"{parts.scheme}://{parts.netloc}/"
                 headers = dict(self.session.headers)
                 headers["Referer"] = base_referer
-
-                timeout_s = policy.get("timeout_s", HTTP.timeout_s)
 
                 resp = self.session.get(url, params=params, headers=headers, timeout=timeout_s)
 
@@ -260,50 +234,91 @@ class HttpClient:
             sep = "&" if "?" in url else "?"
             url = f"{url}{sep}{urlencode(params, doseq=True)}"
 
-        if timeout_s is None:
-            timeout_s = HTTP.timeout_s
+        last_exc: Exception | None = None
 
-        start = time.time()
-        parts = urlsplit(url)
-        domain = parts.netloc.lower()
-        if domain.startswith("www."):
-            domain = domain[4:]
+        for attempt in range(1, HTTP.max_retries + 1):
+            start = time.time()
 
-        ctx = self._get_context(domain)
-        page = ctx.new_page()
+            parts = urlsplit(url)
+            domain = parts.netloc.lower()
+            if domain.startswith("www."):
+                domain = domain[4:]
 
-        # blocăm resurse grele (mai rapid + mai puține șanse de anti-bot)
-        page.route(
-            "**/*",
-            lambda route, request: route.abort()
-            if request.resource_type in ("image", "media", "font")
-            else route.continue_(),
-        )
+            policy = self._get_policy(domain)
 
-        try:
-            resp = page.goto(
-                url,
-                wait_until="domcontentloaded",
-                timeout=int(float(timeout_s) * 1000),
-            )
+            max_retries = int(policy.get("max_retries", HTTP.max_retries))
+            backoff_base = float(policy.get("backoff_base_s", HTTP.backoff_base_s))
+            timeout_policy = policy.get("timeout_s", HTTP.timeout_s)
 
-            # uneori challenge-ul cere puțin timp
-            page.wait_for_timeout(1200)
+            # timeout: param explicit > policy > HTTP default
+            effective_timeout = timeout_policy if timeout_s is None else timeout_s
 
-            html = page.content()
-            status = resp.status if resp else 0
-            elapsed_ms = int((time.time() - start) * 1000)
+            page = None
+            try:
+                ctx = self._get_context(domain)
+                page = ctx.new_page()
 
-            return FetchResult(
-                url=url,
-                status_code=status,
-                text=html,
-                elapsed_ms=elapsed_ms,
-            )
-        finally:
-            page.close()
+                # blocăm resurse grele (mai rapid + mai puține șanse de anti-bot)
+                page.route(
+                    "**/*",
+                    lambda route, request: route.abort()
+                    if request.resource_type in ("image", "media", "font")
+                    else route.continue_(),
+                )
+
+                resp = page.goto(
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=int(float(effective_timeout) * 1000),
+                )
+
+                page.wait_for_timeout(1200)
+
+                html = page.content()
+                status = resp.status if resp else 0
+                elapsed_ms = int((time.time() - start) * 1000)
+
+                return FetchResult(
+                    url=url,
+                    status_code=status,
+                    text=html,
+                    elapsed_ms=elapsed_ms,
+                )
+
+            except Exception as e:
+                last_exc = e
+
+                # IMPORTANT: folosim max_retries din policy dacă există
+                backoff = backoff_base * (2 ** (attempt - 1))
+                logger.warning(
+                    "[js] Eroare Playwright la %s (%s/%s): %s: %s. Retry în %.1fs",
+                    url,
+                    attempt,
+                    max_retries,
+                    type(e).__name__,
+                    e,
+                    backoff,
+                )
+                time.sleep(backoff)
+
+                # dacă policy-ul cere mai puține retry-uri decât HTTP.max_retries, ieșim devreme
+                if attempt >= max_retries:
+                    break
+
+            finally:
+                if page is not None:
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
+
+        assert last_exc is not None
+        raise last_exc
 
     def close(self):
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
         # cleanup la ieșirea din program
         try:
             for ctx in self._context_by_domain.values():
