@@ -72,3 +72,23 @@ def is_valid_publi24_laptop(title: str | None, desc: str | None, url: str | None
 
     # prag
     return score >= 3
+
+def explain_publi24_laptop_filter(title: str, desc: str, url: str = "") -> tuple[bool, str]:
+    """
+    Returnează (keep, reason) pentru debugging/audit.
+    reason e un string scurt: "ok", "hard_ban:<word>", "missing_inch", etc.
+    """
+    t = (title or "").lower()
+    d = (desc or "").lower()
+    text = f"{t}\n{d}"
+
+    # exemplu (adaptează exact la logica ta actuală):
+    # 1) hard ban
+    for b in HARD_BAN:
+        if b in text:
+            return False, f"hard_ban:{b}"
+
+    # 2) must have laptop keywords / inch / cpu etc (depinde ce ai)
+    # dacă ai deja reguli RE_INCH / RE_CPU etc, le aplici aici și dai reason
+    # fallback:
+    return True, "ok"
