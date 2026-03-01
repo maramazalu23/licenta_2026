@@ -12,6 +12,8 @@ from typing import List, Optional
 from app.models import Product
 from app.storage.sqlite import SqliteStore
 from app.sites.base import SiteScraper
+from datetime import datetime, timezone
+from app.storage.csv_writer import write_products_csv
 
 logger = logging.getLogger("scraper.pipeline")
 
@@ -24,6 +26,8 @@ class RunStats:
     site_name: str
     category: str
     pages_requested: int
+    started_at: str = ""
+    finished_at: str = ""
     duration_s: float = 0.0 # Nou
     listing_pages_ok: int = 0
     detail_pages_ok: int = 0
@@ -50,6 +54,8 @@ def run_scrape(
         category=category,
         pages_requested=max_pages,
     )
+
+    stats.started_at = datetime.now(timezone.utc).isoformat()
 
     products: List[Product] = []
     listing_urls = list(site.iter_listing_urls(category=category, max_pages=max_pages))
@@ -81,6 +87,7 @@ def run_scrape(
             for durl in detail_urls:
                 if max_products is not None and len(products) >= max_products:
                     stats.duration_s = round(time.time() - start_time, 2)
+                    stats.finished_at = datetime.now(timezone.utc).isoformat()
                     return products, stats
 
                 try:
@@ -129,6 +136,7 @@ def run_scrape(
             logger.exception("!!! Critical Listing Error: %s: %s", type(e).__name__, e)
         
     stats.duration_s = round(time.time() - start_time, 2)
+    stats.finished_at = datetime.now(timezone.utc).isoformat()
     return products, stats
 
 def run_and_store(
@@ -154,11 +162,20 @@ def run_and_store(
         stats.products_inserted = inserted
         stats.products_updated = updated
 
+        store.insert_scrape_run(stats)
+        logger.info("[db] Saved run summary to scrape_runs: %s", stats.scrape_run_id)
+
         logger.info(
             "--- Finished: Upserted %s/%s (inserted=%s, updated=%s) in %ss ---",
             upserted, len(products), inserted, updated, stats.duration_s
         )
+
+        export_path = Path(BASE_DIR) / "data_out" / "exports" / f"{site_name}_{stats.scrape_run_id}.csv"
+        write_products_csv(products, export_path)
+        logger.info("[export] Wrote CSV: %s", export_path)
     else:
         logger.warning("--- Finished: No products were found/parsed. ---")
-        
+        store = SqliteStore(db_path=db_path) if db_path else SqliteStore()
+        store.insert_scrape_run(stats)
+        logger.info("[db] Saved run summary to scrape_runs: %s", stats.scrape_run_id)        
     return stats

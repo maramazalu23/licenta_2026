@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS products (
 
   title TEXT NOT NULL,
   price TEXT,
+  price_value REAL,
   currency TEXT,
   availability TEXT,
   location TEXT,
@@ -40,10 +41,31 @@ CREATE TABLE IF NOT EXISTS products (
 );
 """
 
+DDL_SCRAPE_RUNS = """
+CREATE TABLE IF NOT EXISTS scrape_runs (
+  run_id TEXT PRIMARY KEY,
+  site_name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT NOT NULL,
+  duration_s REAL NOT NULL,
+  pages_requested INTEGER NOT NULL,
+  listing_pages_ok INTEGER NOT NULL,
+  detail_pages_ok INTEGER NOT NULL,
+  products_parsed INTEGER NOT NULL,
+  products_filtered INTEGER NOT NULL,
+  products_upserted INTEGER NOT NULL,
+  products_inserted INTEGER NOT NULL,
+  products_updated INTEGER NOT NULL,
+  errors INTEGER NOT NULL
+);
+"""
+
 DDL_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_products_source ON products(source);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_scraped_at ON products(scraped_at);
+CREATE INDEX IF NOT EXISTS idx_products_source_category ON products(source, category);
 """
 
 
@@ -68,8 +90,16 @@ class SqliteStore:
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.execute(DDL_PRODUCTS)
+            conn.execute(DDL_SCRAPE_RUNS)
+
+            rows = conn.execute("PRAGMA table_info(products);").fetchall()
+            cols = { (r["name"] if isinstance(r, dict) or hasattr(r, "keys") else r[1]) for r in rows }
+            if "price_value" not in cols:
+                conn.execute("ALTER TABLE products ADD COLUMN price_value REAL;")
+
             for stmt in [s.strip() for s in DDL_INDEXES.split(";") if s.strip()]:
                 conn.execute(stmt)
+
             conn.commit()
 
     def upsert_products(self, products: Iterable[Product]) -> tuple[int, int, int]:
@@ -116,6 +146,9 @@ class SqliteStore:
                 specs_raw_str = json.dumps(p.specs_raw, ensure_ascii=False) if p.specs_raw else None
                 url_str = str(p.url)
 
+                price_str = str(p.price) if p.price is not None else None
+                price_val = float(p.price) if p.price is not None else None
+
                 params = (
                     p.source,
                     p.category,
@@ -123,7 +156,8 @@ class SqliteStore:
                     p.scraped_at.isoformat(),
                     p.scrape_run_id,
                     p.title,
-                    str(p.price) if p.price is not None else None,
+                    price_str,
+                    price_val,
                     p.currency,
                     p.availability,
                     p.location,
@@ -142,17 +176,17 @@ class SqliteStore:
                     """
                     INSERT INTO products(
                         source, category, url, scraped_at, scrape_run_id,
-                        title, price, currency, availability, location, posted_at,
-                        description_text, description_html,
-                        brand_guess, model_guess, mpn_guess,
-                        specs_raw,
+                        title, price, price_value, currency, availability, location,
+                        posted_at, description_text, description_html,
+                        brand_guess, model_guess, mpn_guess, specs_raw,
                         http_status, response_time_ms
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(url) DO UPDATE SET
                         scraped_at=excluded.scraped_at,
                         scrape_run_id=excluded.scrape_run_id,
                         title=excluded.title,
                         price=excluded.price,
+                        price_value=excluded.price_value,
                         currency=excluded.currency,
                         availability=excluded.availability,
                         location=excluded.location,
@@ -184,3 +218,47 @@ class SqliteStore:
             cur = conn.cursor()
             cur.execute("SELECT COUNT(*) FROM products;")
             return int(cur.fetchone()[0])
+        
+    def insert_scrape_run(self, stats) -> None:
+        """
+        Salvează un rezumat al unei rulări în tabela scrape_runs.
+        stats este RunStats din pipeline.py
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO scrape_runs (
+                run_id, site_name, category,
+                started_at, finished_at, duration_s,
+                pages_requested, listing_pages_ok, detail_pages_ok,
+                products_parsed, products_filtered,
+                products_upserted, products_inserted, products_updated,
+                errors
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    stats.scrape_run_id,
+                    stats.site_name,
+                    stats.category,
+                    getattr(stats, "started_at", None) or "",   # completăm imediat mai jos în pipeline
+                    getattr(stats, "finished_at", None) or "",
+                    float(stats.duration_s),
+                    int(stats.pages_requested),
+                    int(stats.listing_pages_ok),
+                    int(stats.detail_pages_ok),
+                    int(stats.products_parsed),
+                    int(stats.products_filtered),
+                    int(stats.products_upserted),
+                    int(stats.products_inserted),
+                    int(stats.products_updated),
+                    int(stats.errors),
+                ),
+            )
+
+    def get_runs(self, limit: int = 50):
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM scrape_runs ORDER BY finished_at DESC LIMIT ?",
+                (limit,),
+            )
+            return [dict(row) for row in cur.fetchall()]

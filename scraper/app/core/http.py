@@ -46,6 +46,21 @@ TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 class HttpClient:
     def __init__(self):
         self.session = requests.Session()
+
+        # User-Agent rotation (mică listă realistă)
+        self.user_agents = [
+            # Chrome Windows
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            # Edge Windows
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            # Firefox Windows
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+            # Chrome macOS
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            # Firefox macOS
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13.6; rv:123.0) Gecko/20100101 Firefox/123.0",
+        ]
+
         self.session.headers.update({
             "User-Agent": HTTP.user_agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -120,6 +135,9 @@ class HttpClient:
             return True
 
         return False
+    
+    def _choose_ua(self) -> str:
+        return random.choice(self.user_agents) if getattr(self, "user_agents", None) else HTTP.user_agent
 
     def get(self, url: str, params: Optional[Dict[str, Any]] = None) -> FetchResult:
         last_exc = None
@@ -141,6 +159,9 @@ class HttpClient:
                 base_referer = f"{parts.scheme}://{parts.netloc}/"
                 headers = dict(self.session.headers)
                 headers["Referer"] = base_referer
+                headers["User-Agent"] = self._choose_ua()
+
+                logger.debug("UA: %s", headers["User-Agent"])
 
                 resp = self.session.get(url, params=params, headers=headers, timeout=timeout_s)
 
@@ -212,7 +233,7 @@ class HttpClient:
         ctx = self._context_by_domain.get(domain)
         if ctx is None:
             ctx = self._browser.new_context(
-                user_agent=self.session.headers.get("User-Agent"),
+                user_agent=self._choose_ua(),
                 locale="ro-RO",
                 extra_http_headers={
                     "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
