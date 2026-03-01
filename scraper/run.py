@@ -72,7 +72,6 @@ def main():
         store = SqliteStore(db_path=args.db) if args.db else SqliteStore()
         total = store.count_products()
         
-        print("\n=== RUN SUMMARY ===")
         logger.info("=== RUN SUMMARY ===")
         logger.info("run_id:         %s", stats.scrape_run_id)
         logger.info("site:           %s", stats.site_name)
@@ -80,7 +79,7 @@ def main():
         logger.info("pages_ok:       %s/%s", stats.listing_pages_ok, stats.pages_requested)
         logger.info("detail_ok:      %s", stats.detail_pages_ok)
         logger.info("parsed:         %s", stats.products_parsed)
-        logger.info("filtered:       %s", getattr(stats, "products_filtered", 0))
+        logger.info("filtered:       %s", stats.products_filtered)
         logger.info("upserted:       %s", stats.products_upserted)
         logger.info("inserted:       %s", stats.products_inserted)
         logger.info("updated:        %s", stats.products_updated)

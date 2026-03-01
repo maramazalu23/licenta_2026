@@ -10,7 +10,7 @@ from app.core.http import HttpClient
 from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn
 from app.models import Product
 from app.sites.base import SiteScraper
-from app.filters import is_valid_publi24_laptop
+from app.filters import explain_publi24_laptop_filter
 
 class Publi24Scraper(SiteScraper):
     """
@@ -126,7 +126,11 @@ class Publi24Scraper(SiteScraper):
 
         title = product.title or ""
         desc = product.description_text or ""
-        return is_valid_publi24_laptop(title, desc, product.url)
+        keep, reason = explain_publi24_laptop_filter(title, desc, product.url)
+        if not keep:
+            logger = __import__("logging").getLogger("scraper.filter")
+            logger.debug("[filtered] %s | %s | %s", reason, product.url, title[:120])
+        return keep
 
     # -------------------
     # Helpers

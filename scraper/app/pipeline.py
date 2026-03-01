@@ -64,7 +64,6 @@ def run_scrape(
 
     for li, listing_url in enumerate(listing_urls, start=1):
         try:
-            site.http.polite_sleep()
             listing_res = site.http.get(listing_url)
 
             if listing_res.status_code != 200:
@@ -84,7 +83,12 @@ def run_scrape(
 
             logger.info("[%s] Page %s/%s: Found %s items", site_name, li, len(listing_urls), len(detail_urls))
 
+            seen_detail: set[str] = set()
+
             for durl in detail_urls:
+                if durl in seen_detail:
+                    continue
+                seen_detail.add(durl)
                 if max_products is not None and len(products) >= max_products:
                     stats.duration_s = round(time.time() - start_time, 2)
                     stats.finished_at = datetime.now(timezone.utc).isoformat()
