@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import html
 from urllib.parse import urljoin
+from typing import Optional
 
 SPACE_RE = re.compile(r"\s+")
 MPN_RE = re.compile(r"\b([A-Z0-9]{2,6}[-_][A-Z0-9]{2,10}(?:[-_][A-Z0-9]{1,10})?)\b")
@@ -14,6 +15,19 @@ BRANDS = [
 BRAND_REGEXES = [(b, re.compile(rf"\b{re.escape(b)}\b", re.IGNORECASE)) for b in BRANDS]
 MACBOOK_RE = re.compile(r"\bmacbook\b", re.IGNORECASE)
 
+MODEL_PATTERNS = [
+    # ThinkPad T480, X1 Carbon, etc.
+    re.compile(r"\b(thinkpad)\s+([a-z]?\d{3,4}[a-z]?)\b", re.I),
+    # Dell Latitude 5420 / Precision 5560
+    re.compile(r"\b(latitude|precision|vostro|inspiron)\s+(\d{4})\b", re.I),
+    # HP ProBook 450 G8 / EliteBook 840 G7 / Victus 15
+    re.compile(r"\b(probook|elitebook)\s+(\d{3,4})\s*(g\d)\b", re.I),
+    re.compile(r"\b(victus)\s+(\d{2})\b", re.I),
+    # ASUS ROG Strix G16 / TUF F15 / Vivobook 15
+    re.compile(r"\b(rog|tuf|vivobook|zenbook)\s+([a-z]?\d{2,4}[a-z]?)\b", re.I),
+    # MacBook Pro 14 / Air 13
+    re.compile(r"\b(macbook)\s+(air|pro)\s+(\d{2})\b", re.I),
+]
 
 def clean_text(s: str | None) -> str | None:
     if s is None:
@@ -50,4 +64,16 @@ def guess_brand(title: str | None) -> str | None:
         if rx.search(title):
             return "HP" if b.lower() == "hp" else b.upper()
 
+    return None
+
+
+def guess_model(title: str) -> Optional[str]:
+    t = (title or "").strip()
+    if not t:
+        return None
+    for rx in MODEL_PATTERNS:
+        m = rx.search(t)
+        if m:
+            parts = [p for p in m.groups() if p]
+            return " ".join(parts).strip()
     return None

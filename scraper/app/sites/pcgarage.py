@@ -7,10 +7,9 @@ from typing import Iterable, List, Optional, Dict, Any, Tuple
 from bs4 import BeautifulSoup
 
 from app.core.http import HttpClient
-from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn
+from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn, guess_model
 from app.models import Product
 from app.sites.base import SiteScraper
-
 
 class PcGarageScraper(SiteScraper):
     BASE_URL = "https://www.pcgarage.ro"
@@ -67,6 +66,7 @@ class PcGarageScraper(SiteScraper):
         soup = BeautifulSoup(html, "lxml")
 
         title = self._extract_title(soup) or "UNKNOWN"
+        model_guess = guess_model(title)
         price, currency = self._extract_price_and_currency(soup)
         availability = self._extract_availability(soup)
         desc_text, desc_html = self._extract_description(soup)
@@ -90,6 +90,7 @@ class PcGarageScraper(SiteScraper):
             availability=availability,
             description_text=desc_text,
             description_html=desc_html,
+            model_guess=model_guess,
             brand_guess=brand,
             mpn_guess=mpn,
             specs_raw=specs_raw if specs_raw else None,
@@ -210,21 +211,6 @@ class PcGarageScraper(SiteScraper):
         return None, None
 
     @staticmethod
-    def _extract_availability(soup: BeautifulSoup) -> Optional[str]:
-        for obj in PcGarageScraper._iter_jsonld_objects(soup):
-            offers = obj.get("offers")
-            if isinstance(offers, dict) and offers.get("availability"):
-                return clean_text(str(offers.get("availability")).split("/")[-1])
-
-        avail_node = soup.select_one(".ps_availability")
-        if avail_node:
-            t = clean_text(avail_node.get_text(" ", strip=True))
-            if t:
-                return t
-
-        return None
-
-    @staticmethod
     def _extract_specs(soup: BeautifulSoup) -> Dict[str, Any]:
         specs: Dict[str, Any] = {}
         selectors = [
@@ -316,3 +302,32 @@ class PcGarageScraper(SiteScraper):
                     return txt, html
 
         return None, None
+    
+    @staticmethod
+    def _extract_availability(soup: BeautifulSoup) -> Optional[str]:
+        # 1) JSON-LD: Offer.availability
+        for obj in PcGarageScraper._iter_jsonld_objects(soup):
+            if not isinstance(obj, dict):
+                continue
+            offers = obj.get("offers")
+            if isinstance(offers, dict):
+                av = offers.get("availability")
+                if isinstance(av, str) and av:
+                    # ex: "http://schema.org/InStock"
+                    return av.rsplit("/", 1)[-1]
+            elif isinstance(offers, list):
+                for off in offers:
+                    if isinstance(off, dict):
+                        av = off.get("availability")
+                        if isinstance(av, str) and av:
+                            return av.rsplit("/", 1)[-1]
+
+        # 2) DOM fallback (best effort, nu strict)
+        text = soup.get_text(" ", strip=True).lower()
+        if "in stoc" in text:
+            return "InStock"
+        if "stoc epuizat" in text or "indisponibil" in text:
+            return "OutOfStock"
+        if "precomanda" in text or "precomand" in text:
+            return "PreOrder"
+        return None

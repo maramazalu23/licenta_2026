@@ -2,15 +2,18 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Iterable, List, Optional, Tuple
 
+from typing import Iterable, List, Optional, Tuple
+from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 
 from app.core.http import HttpClient
-from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn
+from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn, guess_model
 from app.models import Product
 from app.sites.base import SiteScraper
 from app.filters import explain_publi24_laptop_filter
+
+DATE_RE = re.compile(r"\b(\d{2})\.(\d{2})\.(\d{4})\b")
 
 class Publi24Scraper(SiteScraper):
     """
@@ -78,17 +81,18 @@ class Publi24Scraper(SiteScraper):
             t = soup.find("title")
             title = clean_text(t.get_text(" ", strip=True)) if t else "UNKNOWN"
 
-        # Pentru a găsi price/location/descriere robust fără să depindem de clase CSS:
-        # folosim “zona” din jurul titlului + căutări după text.
-        container = h1.parent if h1 else soup
-
         price_text = self._extract_price_from_jsonld(soup)
         if not price_text:
             price_text = self._extract_price_fallback_text(soup)
 
         price_value = clean_text(price_text)
 
-        location = self._extract_location_near(container)
+        # încearcă să găsești o zonă "meta" mai apropiată (best effort)
+        location = self._extract_location_from_jsonld(soup)
+        if not location:
+            meta = soup.select_one("[class*='location'], [class*='Localitate'], [id*='location'], [class*='zona']")
+            root_for_location = meta if meta else (h1.parent if h1 else soup)
+            location = self._extract_location_near(root_for_location)
 
         desc_text, desc_html = self._extract_description(soup)
 
@@ -101,6 +105,10 @@ class Publi24Scraper(SiteScraper):
         brand = guess_brand(title)
         mpn = guess_mpn(title or "") or guess_mpn(desc_text or "")
 
+        posted_at = self._extract_posted_at(soup)
+
+        model_guess = guess_model(title)
+
         return Product(
             source="publi24",
             category=category,
@@ -110,11 +118,11 @@ class Publi24Scraper(SiteScraper):
             currency="RON",
             availability=None,
             location=location,
-            posted_at=None,
+            posted_at=posted_at,
             description_text=desc_text,
             description_html=desc_html,
             brand_guess=brand,
-            model_guess=None,
+            model_guess=model_guess,
             mpn_guess=mpn,
             specs_raw=specs_raw or None,
         )
@@ -145,18 +153,22 @@ class Publi24Scraper(SiteScraper):
 
     @staticmethod
     def _extract_location_near(root) -> Optional[str]:
-        """
-        Heuristic: locațiile sunt de obicei scurte (sub ~50 caractere),
-        conțin virgulă (Oraș, Județ/Sector) și nu conțin 'RON'.
-        """
         for s in root.stripped_strings:
             ss = s.strip()
-            if "ron" in ss.lower():
+            low = ss.lower()
+
+            # filtre
+            if "ron" in low:
                 continue
-            if len(ss) > 50:
+            if len(ss) > 60 or len(ss) < 4:
                 continue
+            if any(k in low for k in ("laptop", "intel", "ryzen", "ssd", "ram", "rtx", "gtx", "gb", "inch", "\"")):
+                continue
+
+            # condiția de locație
             if "," in ss and any(ch.isalpha() for ch in ss):
                 return clean_text(ss)
+
         return None
 
     @staticmethod
@@ -260,3 +272,76 @@ class Publi24Scraper(SiteScraper):
         # Sortăm descrescător după valoarea numerică (prețul e de obicei cea mai mare cifră cu lei/ron)
         candidates.sort(key=lambda x: x[0], reverse=True)
         return candidates[0][1]
+    
+    @staticmethod
+    def _extract_posted_at(soup: BeautifulSoup) -> Optional[datetime]:
+        # 1) încearcă JSON-LD: datePosted
+        scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
+        for sc in scripts:
+            try:
+                raw = sc.string or sc.get_text(strip=True)
+                if not raw:
+                    continue
+                data = json.loads(raw)
+                items = data if isinstance(data, list) else [data]
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    dp = it.get("datePosted") or it.get("datePublished")
+                    if isinstance(dp, str) and dp:
+                        # acceptă ISO (2026-03-01...) sau alte forme; facem best-effort
+                        try:
+                            # dacă e ISO complet:
+                            return datetime.fromisoformat(dp.replace("Z", "+00:00")).astimezone(timezone.utc)
+                        except Exception:
+                            pass
+            except Exception:
+                continue
+
+        # 2) fallback: regex dd.mm.yyyy (ce aveai tu)
+        text = soup.get_text(" ", strip=True)
+        m = DATE_RE.search(text)
+        if m:
+            dd, mm, yyyy = map(int, m.groups())
+            try:
+                return datetime(yyyy, mm, dd, tzinfo=timezone.utc)
+            except ValueError:
+                return None
+        return None
+    
+    @staticmethod
+    def _extract_location_from_jsonld(soup: BeautifulSoup) -> Optional[str]:
+        scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
+        for sc in scripts:
+            try:
+                raw = sc.string or sc.get_text(strip=True)
+                if not raw:
+                    continue
+                data = json.loads(raw)
+                items = data if isinstance(data, list) else [data]
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+
+                    # uneori e in "address"
+                    addr = it.get("address")
+                    if isinstance(addr, dict):
+                        city = addr.get("addressLocality") or addr.get("addressCity")
+                        region = addr.get("addressRegion")
+                        parts = [p for p in [city, region] if isinstance(p, str) and p.strip()]
+                        if parts:
+                            return clean_text(", ".join(parts))
+
+                    # alteori e in "location"
+                    loc = it.get("location")
+                    if isinstance(loc, dict):
+                        addr = loc.get("address")
+                        if isinstance(addr, dict):
+                            city = addr.get("addressLocality") or addr.get("addressCity")
+                            region = addr.get("addressRegion")
+                            parts = [p for p in [city, region] if isinstance(p, str) and p.strip()]
+                            if parts:
+                                return clean_text(", ".join(parts))
+            except Exception:
+                continue
+        return None

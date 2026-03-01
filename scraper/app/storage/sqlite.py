@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS products (
   availability TEXT,
   location TEXT,
   posted_at TEXT,
+  condition TEXT,
 
   description_text TEXT,
   description_html TEXT,
@@ -61,13 +62,38 @@ CREATE TABLE IF NOT EXISTS scrape_runs (
 );
 """
 
+DDL_PRICE_SNAPSHOTS = """
+CREATE TABLE IF NOT EXISTS price_snapshots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  url TEXT NOT NULL,
+  source TEXT NOT NULL,
+  category TEXT NOT NULL,
+
+  price TEXT,
+  price_value REAL,
+  currency TEXT,
+
+  scraped_at TEXT NOT NULL,
+  scrape_run_id TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_snapshots_url_run ON price_snapshots(url, scrape_run_id);
+
+CREATE INDEX IF NOT EXISTS idx_snapshots_url ON price_snapshots(url);
+CREATE INDEX IF NOT EXISTS idx_snapshots_scraped_at ON price_snapshots(scraped_at);
+CREATE INDEX IF NOT EXISTS idx_snapshots_source_category ON price_snapshots(source, category);
+CREATE INDEX IF NOT EXISTS idx_snapshots_url_scraped_at ON price_snapshots(url, scraped_at);
+"""
+
 DDL_INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_products_source ON products(source);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_scraped_at ON products(scraped_at);
 CREATE INDEX IF NOT EXISTS idx_products_source_category ON products(source, category);
+CREATE INDEX IF NOT EXISTS idx_products_brand_model ON products(brand_guess, model_guess);
+CREATE INDEX IF NOT EXISTS idx_products_posted_at ON products(posted_at);
 """
-
 
 class SqliteStore:
     def __init__(self, db_path: str = DB_PATH):
@@ -91,9 +117,13 @@ class SqliteStore:
         with self._connect() as conn:
             conn.execute(DDL_PRODUCTS)
             conn.execute(DDL_SCRAPE_RUNS)
+            conn.executescript(DDL_PRICE_SNAPSHOTS)
 
             rows = conn.execute("PRAGMA table_info(products);").fetchall()
             cols = { (r["name"] if isinstance(r, dict) or hasattr(r, "keys") else r[1]) for r in rows }
+            if "condition" not in cols:
+                conn.execute("ALTER TABLE products ADD COLUMN condition TEXT;")
+            
             if "price_value" not in cols:
                 conn.execute("ALTER TABLE products ADD COLUMN price_value REAL;")
 
@@ -141,6 +171,8 @@ class SqliteStore:
                 )
                 existing_urls.update(row[0] for row in cur.fetchall())
 
+            last_snapshot_cache: dict[str, tuple[Optional[float], Optional[str]]] = {}
+
             # 2) UPSERT pentru fiecare produs + numărătoare insert/update
             for p in products_list:
                 specs_raw_str = json.dumps(p.specs_raw, ensure_ascii=False) if p.specs_raw else None
@@ -148,6 +180,10 @@ class SqliteStore:
 
                 price_str = str(p.price) if p.price is not None else None
                 price_val = float(p.price) if p.price is not None else None
+
+                condition = None
+                if p.specs_raw and isinstance(p.specs_raw, dict):
+                    condition = p.specs_raw.get("stare")
 
                 params = (
                     p.source,
@@ -159,6 +195,7 @@ class SqliteStore:
                     price_str,
                     price_val,
                     p.currency,
+                    condition,
                     p.availability,
                     p.location,
                     p.posted_at.isoformat() if p.posted_at else None,
@@ -176,11 +213,11 @@ class SqliteStore:
                     """
                     INSERT INTO products(
                         source, category, url, scraped_at, scrape_run_id,
-                        title, price, price_value, currency, availability, location,
-                        posted_at, description_text, description_html,
+                        title, price, price_value, currency, condition, availability, 
+                        location, posted_at, description_text, description_html,
                         brand_guess, model_guess, mpn_guess, specs_raw,
                         http_status, response_time_ms
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(url) DO UPDATE SET
                         scraped_at=excluded.scraped_at,
                         scrape_run_id=excluded.scrape_run_id,
@@ -188,6 +225,7 @@ class SqliteStore:
                         price=excluded.price,
                         price_value=excluded.price_value,
                         currency=excluded.currency,
+                        condition=excluded.condition,
                         availability=excluded.availability,
                         location=excluded.location,
                         posted_at=excluded.posted_at,
@@ -202,6 +240,53 @@ class SqliteStore:
                     """,
                     params,
                 )
+
+                # snapshot only if we have a price (optional: store even null prices)
+                if p.scrape_run_id and price_str is not None:
+                    # 1) luăm ultimul snapshot pentru URL (din cache sau DB)
+                    if url_str in last_snapshot_cache:
+                        last_price_value, last_price_str = last_snapshot_cache[url_str]
+                    else:
+                        row = cur.execute(
+                            """
+                            SELECT price_value, price
+                            FROM price_snapshots
+                            WHERE url = ?
+                            ORDER BY scraped_at DESC
+                            LIMIT 1
+                            """,
+                            (url_str,),
+                        ).fetchone()
+                        if row:
+                            last_price_value, last_price_str = row[0], row[1]
+                        else:
+                            last_price_value, last_price_str = None, None
+                        last_snapshot_cache[url_str] = (last_price_value, last_price_str)
+
+                    # 2) comparăm: dacă e identic, nu inserăm
+                    same_value = (last_price_value is not None and price_val is not None and float(last_price_value) == float(price_val))
+                    same_str = (last_price_str is not None and price_str is not None and str(last_price_str) == str(price_str))
+
+                    if not (same_value or same_str):
+                        cur.execute(
+                            """
+                            INSERT OR IGNORE INTO price_snapshots(
+                                url, source, category, price, price_value, currency, scraped_at, scrape_run_id
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (
+                                url_str,
+                                p.source,
+                                p.category,
+                                price_str,
+                                price_val,
+                                p.currency,
+                                p.scraped_at.isoformat(),
+                                p.scrape_run_id,
+                            ),
+                        )
+                        # actualizăm cache-ul cu noul snapshot inserat
+                        last_snapshot_cache[url_str] = (price_val, price_str)
 
                 upserted += 1
                 if url_str in existing_urls:
