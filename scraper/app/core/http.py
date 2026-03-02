@@ -7,10 +7,11 @@ import atexit
 import re
 import gzip
 import logging
+import os
 
 from app.config.sites import POLICIES
 from collections import defaultdict
-from app.config.base import HTTP
+from app.config.base import HTTP, BASE_DIR
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 from urllib.parse import urlsplit
@@ -84,7 +85,10 @@ class HttpClient:
 
         self._pw = None
         self._browser = None
-        self._context_by_domain = {}
+        self._context_by_domain: dict[str, Any] = {}
+        self._context_meta: dict[str, dict[str, Any]] = {}  # ex: {"pcgarage.ro": {"headless": True}}
+        self._state_dir = os.path.join(BASE_DIR, "data_out", "browser_state")
+        os.makedirs(self._state_dir, exist_ok=True)
         atexit.register(self.close)
         self.js_mode_domains = set()              # domenii promovate la JS în acest run
         self.failure_counter = defaultdict(int)   # eșecuri consecutive pe requests
@@ -95,9 +99,7 @@ class HttpClient:
         time.sleep(random.uniform(HTTP.min_delay_s, HTTP.max_delay_s))
 
     def _get_policy(self, domain: str) -> Dict[str, Any]:
-        # map netloc la domeniul de policy (ex: www.pcgarage.ro -> pcgarage.ro)
-        if domain.startswith("www."):
-            domain = domain[4:]
+        domain = self._normalize_domain(domain)
         return POLICIES.get(domain, POLICIES["default"])
 
     def _extract_title(self, html: str) -> str:
@@ -145,9 +147,7 @@ class HttpClient:
             start = time.time()
             try:
                 parts = urlsplit(url)
-                domain = parts.netloc.lower()
-                if domain.startswith("www."):
-                    domain = domain[4:]
+                domain = self._normalize_domain(parts.netloc)
 
                 policy = self._get_policy(domain)
                 timeout_s = policy.get("timeout_s", HTTP.timeout_s)
@@ -225,22 +225,77 @@ class HttpClient:
         if self._pw is None:
             self._pw = sync_playwright().start()
 
-        if self._browser is None:
-            self._browser = self._pw.chromium.launch(headless=True)
+    def _normalize_domain(self, domain: str) -> str:
+        # Unificăm pcgarage.ro și www.pcgarage.ro
+        domain = domain.lower().strip()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return domain
+    
+    def _reset_context(self, domain: str) -> None:
+        domain = self._normalize_domain(domain)
+        ctx = self._context_by_domain.pop(domain, None)
+        self._context_meta.pop(domain, None)
+        if ctx is not None:
+            try:
+                ctx.close()
+            except Exception:
+                pass
 
-    def _get_context(self, domain: str):
+    def _get_context(self, domain: str, *, force_headless: Optional[bool] = None):
         self._ensure_playwright()
+        domain = self._normalize_domain(domain)
+
+        # dacă există deja și nu cerem alt tip de headless, îl refolosim
         ctx = self._context_by_domain.get(domain)
-        if ctx is None:
-            ctx = self._browser.new_context(
-                user_agent=self._choose_ua(),
-                locale="ro-RO",
-                extra_http_headers={
-                    "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
-                    "Upgrade-Insecure-Requests": "1",
-                },
-            )
-            self._context_by_domain[domain] = ctx
+        if ctx is not None and force_headless is None:
+            return ctx
+
+        # dacă există deja, dar vrem alt headless/headful -> îl resetăm
+        if ctx is not None and force_headless is not None:
+            meta = self._context_meta.get(domain, {})
+            if meta.get("headless") != force_headless:
+                self._reset_context(domain)
+                ctx = None
+
+        if ctx is not None:
+            return ctx
+
+        state_root = os.path.join(BASE_DIR, "data_out", "browser_profile")
+        os.makedirs(state_root, exist_ok=True)
+        user_data_dir = os.path.join(state_root, domain)
+
+        policy = self._get_policy(domain)
+
+        # headless: dacă nu e forțat, luăm din policy (dacă există), altfel din env
+        if force_headless is None:
+            if "headless" in policy:
+                headless = bool(policy["headless"])
+            else:
+                headless = os.getenv("PW_HEADLESS", "1") not in ("0", "false", "False")
+        else:
+            headless = force_headless
+
+        ua = self._choose_ua()
+
+        ctx = self._pw.chromium.launch_persistent_context(
+            user_data_dir=user_data_dir,
+            headless=headless,
+            locale="ro-RO",
+            user_agent=ua,
+            viewport={"width": 1366, "height": 768},
+            args=[
+                "--disable-blink-features=AutomationControlled",
+            ],
+        )
+
+        ctx.set_extra_http_headers({
+            "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Upgrade-Insecure-Requests": "1",
+        })
+
+        self._context_by_domain[domain] = ctx
+        self._context_meta[domain] = {"headless": headless, "user_agent": ua}
         return ctx
 
     def get_js(
@@ -261,9 +316,7 @@ class HttpClient:
             start = time.time()
 
             parts = urlsplit(url)
-            domain = parts.netloc.lower()
-            if domain.startswith("www."):
-                domain = domain[4:]
+            domain = self._normalize_domain(parts.netloc)
 
             policy = self._get_policy(domain)
 
@@ -289,15 +342,28 @@ class HttpClient:
 
                 resp = page.goto(
                     url,
-                    wait_until="domcontentloaded",
+                    wait_until="domcontentloaded",  # mai stabil decât networkidle pe site-uri cu multe requesturi
                     timeout=int(float(effective_timeout) * 1000),
                 )
 
                 page.wait_for_timeout(1200)
-
                 html = page.content()
                 status = resp.status if resp else 0
                 elapsed_ms = int((time.time() - start) * 1000)
+
+                # dacă suntem blocați (403 / challenge), retry + pentru pcgarage încercăm headful automat
+                if domain == "pcgarage.ro":
+                    if status in (403, 429, 503) or self._looks_blocked(html) or self._looks_shell_or_bad(policy, html):
+                        meta = self._context_meta.get(domain, {})
+                        was_headless = bool(meta.get("headless", True))
+
+                        # prima dată: dacă era headless, refacem contextul headful și dăm retry
+                        if was_headless:
+                            logger.warning("[js] pcgarage blocked in headless -> recreate context headful and retry: %s", url)
+                            self._reset_context(domain)
+                            # refacem context headful
+                            _ = self._get_context(domain, force_headless=False)
+                        raise RuntimeError(f"Blocked/403 in JS for {domain} (status={status})")
 
                 return FetchResult(
                     url=url,

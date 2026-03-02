@@ -15,6 +15,17 @@ BRANDS = [
 BRAND_REGEXES = [(b, re.compile(rf"\b{re.escape(b)}\b", re.IGNORECASE)) for b in BRANDS]
 MACBOOK_RE = re.compile(r"\bmacbook\b", re.IGNORECASE)
 
+# Acceptă și coduri care încep cu cifre (Lenovo: 16ARP10, 15IRX11 etc.)
+MODEL_TOKEN_RE = re.compile(r"\b([A-Z0-9]{2,12}(?:-[A-Z0-9]{1,6})?)\b")
+
+# Cazuri cu spațiu: "A16 3VH"
+MODEL_SPACE_RE = re.compile(r"\b([A-Z]{1,3}\d{1,3})\s+([A-Z0-9]{2,6})\b")
+
+BAD_PREFIXES = ("RTX", "GTX", "SSD", "RAM", "CORE", "RYZEN", "INTEL", "AMD", "GB", "HZ", "WUXGA", "FHD", "OLED")
+
+# prinde token-uri gen ANV15-41 / P1503CVA / E1504FA / 16ARP10 / 15IRX11
+TOKEN_RE = re.compile(r"\b([A-Z0-9]{2,12}(?:-[A-Z0-9]{1,6})?)\b", re.IGNORECASE)
+
 MODEL_PATTERNS = [
     # ThinkPad T480, X1 Carbon, etc.
     re.compile(r"\b(thinkpad)\s+([a-z]?\d{3,4}[a-z]?)\b", re.I),
@@ -66,14 +77,80 @@ def guess_brand(title: str | None) -> str | None:
 
     return None
 
+def _has_letters_and_digits(s: str) -> bool:
+    return any(c.isalpha() for c in s) and any(c.isdigit() for c in s)
 
 def guess_model(title: str) -> Optional[str]:
     t = (title or "").strip()
     if not t:
         return None
+
+    # 1) pattern-urile tale existente (prioritare)
     for rx in MODEL_PATTERNS:
         m = rx.search(t)
         if m:
             parts = [p for p in m.groups() if p]
-            return " ".join(parts).strip()
+            out = " ".join(parts).strip()
+            return out or None
+
+    low = t.lower()
+
+    # 2) Brand/series keywords (ex: ThinkPad P51, Legion 5, Nitro V 15)
+    # încearcă să întoarcă "ThinkPad P51" / "Legion Pro 7" / "Nitro V 15" etc.
+    SERIES_PATTERNS = [
+        re.compile(r"\b(thinkpad)\s+([a-z]?\d{2,4}[a-z]{0,3})\b", re.IGNORECASE),
+        re.compile(r"\b(legion)\s+(pro\s+\d+|slim\s+\d+|\d+)\b", re.IGNORECASE),
+        re.compile(r"\b(ideapad)\s+([a-z0-9 ]{1,20}?)\s+([a-z]{0,3}\d{2,4}[a-z0-9]{0,6})\b", re.IGNORECASE),
+        re.compile(r"\b(nitro)\s+([a-z]?\s*v\s*\d{1,2})\b", re.IGNORECASE),
+        re.compile(r"\b(vivobook)\s+([a-z0-9]{4,10})\b", re.IGNORECASE),
+        re.compile(r"\b(expertbook)\s+([a-z0-9]{3,12})\b", re.IGNORECASE),
+        re.compile(r"\b(zenbook)\s+([a-z0-9]{3,12})\b", re.IGNORECASE),
+        re.compile(r"\b(omen|pavilion|probook|elitebook)\s+([a-z0-9\-]{2,12})\b", re.IGNORECASE),
+        re.compile(r"\b(precision|latitude|inspiron|xps)\s+(\d{3,4})\b", re.IGNORECASE),
+        re.compile(r"\b(macbook)\s+(air|pro)\b", re.IGNORECASE),
+    ]
+    for rx in SERIES_PATTERNS:
+        m = rx.search(t)
+        if m:
+            parts = [p for p in m.groups() if p]
+            out = " ".join(parts)
+            out = re.sub(r"\s+", " ", out).strip()
+            return out or None
+
+    # 3) Fallback: caută coduri alfanumerice “de model” (F1605ZA, ANV15-52, 3750ZG etc),
+    # dar evită CPU/GPU/RAM/SSD.
+    CODE_RX = re.compile(r"\b([A-Z]{1,5}\d{2,5}[A-Z]{0,4}(?:[-/][A-Z0-9]{2,6})?)\b")
+    BAD_CODE_RX = re.compile(
+        r"^(i[3579]-?\d{3,5}[a-z]{0,3}|"
+        r"rtx\d{3,5}(ti)?|gtx\d{3,5}(ti)?|mx\d{3,4}|"
+        r"ddr\d|"
+        r"\d{1,3}gb|\d{1,2}tb|"
+        r"\d{2}\.?(\d)?hz|"
+        r"fhd|wuxga|qhd|uhd|oled)$",
+        re.IGNORECASE,
+    )
+
+    candidates: list[str] = []
+    for m in CODE_RX.finditer(t):
+        code = m.group(1).strip()
+        if not code:
+            continue
+        if BAD_CODE_RX.match(code):
+            continue
+        # evită să întoarcă ceva absurd de scurt
+        if len(code) < 4:
+            continue
+        candidates.append(code)
+
+    if candidates:
+        # alege cel mai “specific” (de obicei cel mai lung cod)
+        candidates.sort(key=len, reverse=True)
+        return candidates[0]
+
+    # 4) Ultim fallback: modele simple gen "15s", "G7", "T400"
+    SIMPLE_RX = re.compile(r"\b([A-Z]\d{3,4}|15s|g7|t\d{3,4})\b", re.IGNORECASE)
+    m = SIMPLE_RX.search(t)
+    if m:
+        return m.group(1)
+
     return None

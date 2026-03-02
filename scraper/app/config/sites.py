@@ -9,6 +9,7 @@ POLICIES: Dict[str, Dict[str, Any]] = {
         "min_len": 30_000,
         "must_contain": "/notebook-laptop/",
         "fail_threshold": 1,
+        "headless": False,
         # opțional (dacă vrei override față de HTTP.max_retries)
         # "max_retries": 3,
         # "backoff_base_s": 1.0,

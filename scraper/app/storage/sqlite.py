@@ -115,18 +115,60 @@ class SqliteStore:
 
     def _init_db(self) -> None:
         with self._connect() as conn:
+            # 1) Create tables (safe)
             conn.execute(DDL_PRODUCTS)
             conn.execute(DDL_SCRAPE_RUNS)
             conn.executescript(DDL_PRICE_SNAPSHOTS)
 
-            rows = conn.execute("PRAGMA table_info(products);").fetchall()
-            cols = { (r["name"] if isinstance(r, dict) or hasattr(r, "keys") else r[1]) for r in rows }
-            if "condition" not in cols:
-                conn.execute("ALTER TABLE products ADD COLUMN condition TEXT;")
-            
-            if "price_value" not in cols:
-                conn.execute("ALTER TABLE products ADD COLUMN price_value REAL;")
+            # 2) Migrations for older DBs (ADD COLUMN where missing)
+            # NOTE: SQLite can't easily add NOT NULL constraints on existing tables,
+            # so we keep these columns nullable in migrations.
+            products_required = {
+                "source": "TEXT",
+                "category": "TEXT",
+                "url": "TEXT",
+                "scraped_at": "TEXT",
+                "scrape_run_id": "TEXT",
+                "title": "TEXT",
+                "price": "TEXT",
+                "price_value": "REAL",
+                "currency": "TEXT",
+                "availability": "TEXT",
+                "location": "TEXT",
+                "posted_at": "TEXT",
+                "condition": "TEXT",
+                "description_text": "TEXT",
+                "description_html": "TEXT",
+                "brand_guess": "TEXT",
+                "model_guess": "TEXT",
+                "mpn_guess": "TEXT",
+                "specs_raw": "TEXT",
+                "http_status": "INTEGER",
+                "response_time_ms": "INTEGER",
+            }
 
+            scrape_runs_required = {
+                "run_id": "TEXT",
+                "site_name": "TEXT",
+                "category": "TEXT",
+                "started_at": "TEXT",
+                "finished_at": "TEXT",
+                "duration_s": "REAL",
+                "pages_requested": "INTEGER",
+                "listing_pages_ok": "INTEGER",
+                "detail_pages_ok": "INTEGER",
+                "products_parsed": "INTEGER",
+                "products_filtered": "INTEGER",
+                "products_upserted": "INTEGER",
+                "products_inserted": "INTEGER",
+                "products_updated": "INTEGER",
+                "errors": "INTEGER",
+            }
+
+            self._ensure_columns(conn, "products", products_required)
+            self._ensure_columns(conn, "scrape_runs", scrape_runs_required)
+
+            # 3) Indexes (safe)
             for stmt in [s.strip() for s in DDL_INDEXES.split(";") if s.strip()]:
                 conn.execute(stmt)
 
@@ -221,20 +263,25 @@ class SqliteStore:
                     ON CONFLICT(url) DO UPDATE SET
                         scraped_at=excluded.scraped_at,
                         scrape_run_id=excluded.scrape_run_id,
+
+                        -- mereu actualizabile (nu vrem să rămână titlu/price vechi)
                         title=excluded.title,
                         price=excluded.price,
                         price_value=excluded.price_value,
                         currency=excluded.currency,
-                        condition=excluded.condition,
-                        availability=excluded.availability,
-                        location=excluded.location,
-                        posted_at=excluded.posted_at,
-                        description_text=excluded.description_text,
-                        description_html=excluded.description_html,
-                        brand_guess=excluded.brand_guess,
-                        model_guess=excluded.model_guess,
-                        mpn_guess=excluded.mpn_guess,
-                        specs_raw=excluded.specs_raw,
+
+                        -- nu suprascriem cu NULL (păstrăm ce aveam dacă noul e gol)
+                        condition=COALESCE(excluded.condition, products.condition),
+                        availability=COALESCE(excluded.availability, products.availability),
+                        location=COALESCE(excluded.location, products.location),
+                        posted_at=COALESCE(excluded.posted_at, products.posted_at),
+                        description_text=COALESCE(excluded.description_text, products.description_text),
+                        description_html=COALESCE(excluded.description_html, products.description_html),
+                        brand_guess=COALESCE(excluded.brand_guess, products.brand_guess),
+                        model_guess=COALESCE(excluded.model_guess, products.model_guess),
+                        mpn_guess=COALESCE(excluded.mpn_guess, products.mpn_guess),
+                        specs_raw=COALESCE(excluded.specs_raw, products.specs_raw),
+
                         http_status=excluded.http_status,
                         response_time_ms=excluded.response_time_ms
                     """,
@@ -298,12 +345,6 @@ class SqliteStore:
 
         return upserted, inserted, updated
     
-    def count_products(self) -> int:
-        with self._connect() as conn:
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM products;")
-            return int(cur.fetchone()[0])
-        
     def insert_scrape_run(self, stats) -> None:
         """
         Salvează un rezumat al unei rulări în tabela scrape_runs.
@@ -340,6 +381,12 @@ class SqliteStore:
                 ),
             )
 
+    def count_products(self) -> int:
+        with self._connect() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM products;")
+            return int(cur.fetchone()[0])
+
     def get_runs(self, limit: int = 50):
         with self._connect() as conn:
             cur = conn.execute(
@@ -347,3 +394,14 @@ class SqliteStore:
                 (limit,),
             )
             return [dict(row) for row in cur.fetchall()]
+
+    def _table_columns(self, conn: sqlite3.Connection, table: str) -> set[str]:
+        rows = conn.execute(f"PRAGMA table_info({table});").fetchall()
+        # sqlite3.Row supports row["name"]
+        return {row["name"] for row in rows}
+
+    def _ensure_columns(self, conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+        existing = self._table_columns(conn, table)
+        for col, col_ddl in columns.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_ddl};")

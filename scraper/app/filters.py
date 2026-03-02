@@ -13,7 +13,7 @@ HARD_BAN_STRICT = [
     "monitor", "tv", "televizor",
     "imprimanta", "printer", "scanner",
     "router", "switch", "stick",
-    "sacosa", "cosa",
+    "sacosa", "cosa", "husa"
 ]
 
 HARD_BAN_SOFT = [
@@ -37,7 +37,8 @@ HARD_BAN = [
     "service", "repar", "repara", "reparatii", "reparații",
     "monitor", "tv", "televizor", "cosa", "sacosa", 
     "imprimanta", "printer", "scanner",
-    "router", "switch", "stick", 
+    "router", "switch", "stick", "trackpad",
+    "capac", "touchpad", "palmrest",
 ]
 
 ALLOW_KEYWORDS = [
