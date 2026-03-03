@@ -283,142 +283,6 @@ def _is_laptop(source: str, title: str, desc: str) -> int:
     return 1
 
 
-def main():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-
-    # add columns (safe)
-    cols = {r["name"] for r in cur.execute("PRAGMA table_info(products_clean)").fetchall()}
-
-    def addcol(name, ddl):
-        if name not in cols:
-            cur.execute(f"ALTER TABLE products_clean ADD COLUMN {name} {ddl}")
-
-    addcol("brand_norm", "TEXT")
-    addcol("condition_norm", "TEXT")
-    addcol("model_norm", "TEXT")
-    addcol("title_norm", "TEXT")
-    addcol("model_family", "TEXT")
-    addcol("title_std", "TEXT")
-    addcol("cpu_guess", "TEXT")
-    addcol("ram_gb", "INTEGER")
-    addcol("storage_guess", "TEXT")
-    addcol("gpu_guess", "TEXT")
-    addcol("screen_in", "REAL")
-    addcol("is_laptop", "INTEGER")
-
-    conn.commit()
-
-    cols = [r["name"] for r in cur.execute("PRAGMA table_info(products_clean)").fetchall()]
-
-    def pick(*names):
-        for n in names:
-            if n in cols:
-                return n
-        return None
-
-    col_source = pick("source")
-    col_url = pick("url")
-    col_title = pick("title", "title_clean", "name", "name_clean")
-    col_desc = pick("description_text", "description", "description_clean", "desc", "desc_clean")
-    col_brand = pick("brand_guess", "brand", "brand_clean")
-    col_specs = pick("specs_raw", "specs", "specs_clean")
-
-    needed = [c for c in [col_source, col_url, col_title, col_desc, col_brand, col_specs] if c is not None]
-    rows = cur.execute("SELECT rowid, " + ", ".join(needed) + " FROM products_clean").fetchall()
-
-    updated = 0
-    for r in rows:
-        source = (r[col_source] if col_source else "") or ""
-        url = (r[col_url] if col_url else "") or ""
-        title = (r[col_title] if col_title else "") or ""
-        desc = (r[col_desc] if col_desc else "") or ""
-        raw_brand = (r[col_brand] if col_brand else None)
-
-        specs = None
-        if col_specs and r[col_specs]:
-            try:
-                specs = json.loads(r[col_specs]) if isinstance(r[col_specs], str) else r[col_specs]
-            except Exception:
-                specs = None
-
-        t_norm = norm_title(title)
-        is_laptop = _is_laptop(source, title, desc)
-
-        b = norm_brand(raw_brand or "")
-        if not b:
-            low = f"{title} {desc}".lower()
-            for k, v in BRAND_ALIASES.items():
-                if k in low:
-                    b = v
-                    break
-
-        # model_norm (DOAR dacă e laptop)
-        m_norm = None
-        if is_laptop == 1:
-            if source.lower() == "pcgarage":
-                m_norm = guess_model_from_pcgarage_url(url) or guess_model_norm(t_norm)
-            else:
-                m_norm = guess_model_norm(t_norm)
-
-        # model_family + title_std (DOAR pt laptopuri)
-        fam = None
-        t_std = None
-        if is_laptop == 1:
-            fam = guess_model_family(b, t_norm)  # b îl calculezi mai jos; dacă vrei, mută calculul lui b mai sus
-
-        cond = norm_condition(title, desc, specs)
-        if source.lower() == "pcgarage":
-            cond = "new"
-
-        text = f"{title} {desc}"
-        cpu = extract(text, CPU_RE)
-
-        ram = None
-        mram = RAM_RE.search(text)
-        if mram:
-            ram = int(mram.group(1))
-
-        storage = extract(text, SSD_RE)
-        gpu = extract(text, GPU_RE)
-
-        scr = None
-        ms = SCREEN_RE.search(text)
-        if ms:
-            try:
-                scr = float(ms.group(1).replace(",", "."))
-            except Exception:
-                scr = None
-
-        t_std = None
-        if is_laptop == 1:
-            # dacă nu avem model_norm, măcar păstrăm familia
-            if fam is None:
-                fam = guess_model_family(b, t_norm)
-            t_std = build_title_std(b, fam, m_norm, cpu, ram, storage, gpu, scr)
-
-        cur.execute(
-            """
-            UPDATE products_clean
-            SET brand_norm=?, condition_norm=?, model_norm=?, title_norm=?,
-                model_family=?, title_std=?,
-                cpu_guess=?, ram_gb=?, storage_guess=?, gpu_guess=?, screen_in=?,
-                is_laptop=?
-            WHERE rowid=?
-            """,
-            (b, cond, m_norm, t_norm,
-            fam, t_std,
-            cpu, ram, storage, gpu, scr,
-            is_laptop, r["rowid"]),
-        )
-        updated += 1
-
-    conn.commit()
-    conn.close()
-    print("normalized_updated:", updated)
-
-
 def guess_model_family(brand_norm: str | None, title_norm: str) -> str | None:
     """
     Întoarce o familie 'safe' (nu inventează coduri).
@@ -575,6 +439,141 @@ def build_title_std(
             out.append(p.strip())
 
     return " ".join(out).strip() if out else None
+
+
+def main():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    # add columns (safe)
+    cols = {r["name"] for r in cur.execute("PRAGMA table_info(products_clean)").fetchall()}
+
+    def addcol(name, ddl):
+        if name not in cols:
+            cur.execute(f"ALTER TABLE products_clean ADD COLUMN {name} {ddl}")
+
+    addcol("brand_norm", "TEXT")
+    addcol("condition_norm", "TEXT")
+    addcol("model_norm", "TEXT")
+    addcol("title_norm", "TEXT")
+    addcol("model_family", "TEXT")
+    addcol("title_std", "TEXT")
+    addcol("cpu_guess", "TEXT")
+    addcol("ram_gb", "INTEGER")
+    addcol("storage_guess", "TEXT")
+    addcol("gpu_guess", "TEXT")
+    addcol("screen_in", "REAL")
+    addcol("is_laptop", "INTEGER")
+
+    conn.commit()
+
+    cols = [r["name"] for r in cur.execute("PRAGMA table_info(products_clean)").fetchall()]
+
+    def pick(*names):
+        for n in names:
+            if n in cols:
+                return n
+        return None
+
+    col_source = pick("source")
+    col_url = pick("url")
+    col_title = pick("title", "title_clean", "name", "name_clean")
+    col_desc = pick("description_text", "description", "description_clean", "desc", "desc_clean")
+    col_brand = pick("brand_guess", "brand", "brand_clean")
+    col_specs = pick("specs_raw", "specs", "specs_clean")
+
+    needed = [c for c in [col_source, col_url, col_title, col_desc, col_brand, col_specs] if c is not None]
+    rows = cur.execute("SELECT rowid, " + ", ".join(needed) + " FROM products_clean").fetchall()
+
+    updated = 0
+    for r in rows:
+        source = (r[col_source] if col_source else "") or ""
+        url = (r[col_url] if col_url else "") or ""
+        title = (r[col_title] if col_title else "") or ""
+        desc = (r[col_desc] if col_desc else "") or ""
+        raw_brand = (r[col_brand] if col_brand else None)
+
+        specs = None
+        if col_specs and r[col_specs]:
+            try:
+                specs = json.loads(r[col_specs]) if isinstance(r[col_specs], str) else r[col_specs]
+            except Exception:
+                specs = None
+
+        t_norm = norm_title(title)
+        is_laptop = _is_laptop(source, title, desc)
+
+        b = norm_brand(raw_brand or "")
+        if not b:
+            low = f"{title} {desc}".lower()
+            for k, v in BRAND_ALIASES.items():
+                if k in low:
+                    b = v
+                    break
+
+        # model_norm (DOAR dacă e laptop)
+        m_norm = None
+        if is_laptop == 1:
+            if source.lower() == "pcgarage":
+                m_norm = guess_model_from_pcgarage_url(url) or guess_model_norm(t_norm)
+            else:
+                m_norm = guess_model_norm(t_norm)
+
+        # Publi24 = marketplace second-hand -> default used if we can't infer from text/specs
+        cond = norm_condition(title, desc, specs)
+        if source.lower() == "pcgarage":
+            cond = "new"
+        if not cond and source.lower() == "publi24":
+            cond = "used"
+
+        text = f"{title} {desc}"
+        cpu = extract(text, CPU_RE)
+
+        ram = None
+        mram = RAM_RE.search(text)
+        if mram:
+            ram = int(mram.group(1))
+
+        storage = extract(text, SSD_RE)
+        gpu = extract(text, GPU_RE)
+
+        scr = None
+        ms = SCREEN_RE.search(text)
+        if ms:
+            try:
+                scr = float(ms.group(1).replace(",", "."))
+            except Exception:
+                scr = None
+
+        # model_family + title_std (DOAR pt laptopuri)
+        fam = None
+        t_std = None
+        if is_laptop == 1:
+            fam = guess_model_family(b, t_norm)
+            t_std = build_title_std(b, fam, m_norm, cpu, ram, storage, gpu, scr)
+        
+        cur.execute(
+            """
+            UPDATE products_clean
+            SET brand_norm=?,
+                condition_norm=COALESCE(?, condition_norm),
+                model_norm=?, title_norm=?,
+                model_family=?, title_std=?,
+                cpu_guess=?, ram_gb=?, storage_guess=?, gpu_guess=?, screen_in=?,
+                is_laptop=?
+            WHERE rowid=?
+            """,
+            (b, cond, m_norm, t_norm,
+            fam, t_std,
+            cpu, ram, storage, gpu, scr,
+            is_laptop, r["rowid"]),
+        )
+        updated += 1
+
+    conn.commit()
+    conn.close()
+    print("normalized_updated:", updated)
 
 
 if __name__ == "__main__":

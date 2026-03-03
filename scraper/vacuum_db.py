@@ -1,6 +1,7 @@
 import sqlite3
+from app.config.base import DB_PATH
+db_path = DB_PATH
 
-db_path = "data_out/products.db"
 with sqlite3.connect(db_path) as conn:
     conn.execute("VACUUM;")
     conn.execute("ANALYZE;")

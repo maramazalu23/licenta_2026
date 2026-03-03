@@ -6,6 +6,18 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
 
+    exists = cur.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='view' AND name='products_analysis'"
+    ).fetchone()[0]
+    if not exists:
+        raise SystemExit("View products_analysis nu există. Rulează: python scripts/create_products_analysis_view.py")
+
+    tbl = cur.execute(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='products_clean'"
+    ).fetchone()[0]
+    if not tbl:
+        raise SystemExit("Tabelul products_clean nu există. Rulează: python scripts/build_clean_table.py")
+
     n = cur.execute("SELECT COUNT(*) FROM products_analysis").fetchone()[0]
     print("products_analysis rows:", n)
 

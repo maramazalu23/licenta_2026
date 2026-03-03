@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import re
 from typing import Iterable, Optional, Tuple
 
 from app.config.base import DB_PATH
@@ -94,6 +95,61 @@ CREATE INDEX IF NOT EXISTS idx_products_source_category ON products(source, cate
 CREATE INDEX IF NOT EXISTS idx_products_brand_model ON products(brand_guess, model_guess);
 CREATE INDEX IF NOT EXISTS idx_products_posted_at ON products(posted_at);
 """
+import re
+
+_PRICE_RE = re.compile(r"(\d[\d\.\s]*)(?:,(\d{1,2}))?")
+
+def _parse_price_value(price) -> float | None:
+    """
+    Acceptă:
+      - None, int/float
+      - stringuri: "1.299,99", "1 299", "1299 lei", "7399.00", "2,398.99" (rar)
+    Returnează float în RON (lei).
+    """
+    if price is None:
+        return None
+    if isinstance(price, (int, float)):
+        return float(price)
+
+    s = str(price).strip().lower()
+    if not s:
+        return None
+
+    s = s.replace("ron", "").replace("lei", "").strip()
+
+    # normalizează spații
+    s = re.sub(r"\s+", " ", s)
+
+    # 1) Caz RO: are virgulă ca zecimal -> "7.399,00" / "2398,99"
+    if "," in s:
+        # eliminăm separatorii de mii (puncte/spații), apoi înlocuim virgula cu punct
+        s2 = s.replace(".", "").replace(" ", "")
+        s2 = s2.replace(",", ".")
+        try:
+            return float(re.findall(r"\d+(?:\.\d+)?", s2)[0])
+        except Exception:
+            return None
+
+    # 2) Caz EN: are punct ca zecimal -> "7399.00" / "2398.99"
+    # Dacă există exact un punct și după el sunt 1-2 cifre -> zecimal.
+    m = re.search(r"(\d[\d\s]*)(\.(\d{1,2}))\b", s)
+    if m:
+        s2 = s.replace(" ", "")
+        # aici punctul e zecimal, deci NU îl ștergem
+        try:
+            return float(re.findall(r"\d+(?:\.\d+)?", s2)[0])
+        except Exception:
+            return None
+
+    # 3) Doar întregi cu puncte/spații ca mii: "7.399" / "1 299"
+    s2 = s.replace(".", "").replace(" ", "")
+    m2 = re.search(r"\d+", s2)
+    if not m2:
+        return None
+    try:
+        return float(m2.group(0))
+    except ValueError:
+        return None
 
 class SqliteStore:
     def __init__(self, db_path: str = DB_PATH):
@@ -220,8 +276,8 @@ class SqliteStore:
                 specs_raw_str = json.dumps(p.specs_raw, ensure_ascii=False) if p.specs_raw else None
                 url_str = str(p.url)
 
-                price_str = str(p.price) if p.price is not None else None
-                price_val = float(p.price) if p.price is not None else None
+                price_str = str(p.price).strip() if p.price is not None else None
+                price_val = _parse_price_value(p.price)
 
                 condition = getattr(p, "condition", None)
                 if not condition and p.specs_raw and isinstance(p.specs_raw, dict):
@@ -289,7 +345,7 @@ class SqliteStore:
                 )
 
                 # snapshot only if we have a price (optional: store even null prices)
-                if p.scrape_run_id and price_str is not None:
+                if p.scrape_run_id and price_val is not None:
                     # 1) luăm ultimul snapshot pentru URL (din cache sau DB)
                     if url_str in last_snapshot_cache:
                         last_price_value, last_price_str = last_snapshot_cache[url_str]
@@ -311,10 +367,8 @@ class SqliteStore:
                         last_snapshot_cache[url_str] = (last_price_value, last_price_str)
 
                     # 2) comparăm: dacă e identic, nu inserăm
-                    same_value = (last_price_value is not None and price_val is not None and float(last_price_value) == float(price_val))
-                    same_str = (last_price_str is not None and price_str is not None and str(last_price_str) == str(price_str))
-
-                    if not (same_value or same_str):
+                    same_value = (last_price_value is not None and float(last_price_value) == float(price_val))
+                    if not same_value:
                         cur.execute(
                             """
                             INSERT OR IGNORE INTO price_snapshots(
@@ -332,6 +386,8 @@ class SqliteStore:
                                 p.scrape_run_id,
                             ),
                         )
+                        if cur.rowcount == 1:
+                            last_snapshot_cache[url_str] = (price_val, price_str)
                         # actualizăm cache-ul cu noul snapshot inserat
                         last_snapshot_cache[url_str] = (price_val, price_str)
 
@@ -380,6 +436,7 @@ class SqliteStore:
                     int(stats.errors),
                 ),
             )
+        conn.commit()
 
     def count_products(self) -> int:
         with self._connect() as conn:

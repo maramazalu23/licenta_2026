@@ -1,6 +1,7 @@
 from __future__ import annotations
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 @dataclass(frozen=True)
 class HttpConfig:
@@ -19,10 +20,8 @@ class HttpConfig:
 # Instanțiem obiectul de configurare pentru a fi folosit în app
 HTTP = HttpConfig()
 
-# Căile pentru stocare
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(BASE_DIR, "data_out", "products.db")
+BASE_DIR = Path(__file__).resolve().parents[2]
+DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data_out" / "products.db")))
 
-# Ne asigurăm că folderul data_out există
-os.makedirs(os.path.join(BASE_DIR, "data_out"), exist_ok=True)
-os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+(BASE_DIR / "logs").mkdir(parents=True, exist_ok=True)
