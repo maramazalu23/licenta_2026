@@ -26,6 +26,7 @@ class Product(BaseModel):
     # --- Conținut Principal ---
     title: str
     price: Optional[Decimal] = None
+    price_value: float | None = None
     currency: CurrencyType = "RON"
 
     # --- Detalii Specifice ---

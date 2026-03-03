@@ -338,7 +338,7 @@ class Publi24Scraper(SiteScraper):
                 val = float(val_str)
                 if val > 10: # Ignorăm valori nerealiste (gen 1 leu sau erori de regex)
                     candidates.append((val, m.group(0)))
-            except:
+            except (ValueError, TypeError):
                 continue
 
         if not candidates: return None
@@ -371,33 +371,28 @@ class Publi24Scraper(SiteScraper):
 
         # 2) Publi24: "Valabil din 3/1/2026 7:45:39 PM"
         full = soup.get_text("\n", strip=True)
-        m = re.search(
-            r"(?i)\bvalabil\s+din\s+(\d{1,2})/(\d{1,2})/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?\b",
-            full,
-        )
+        m = re.search(r"Valabil din\s+(\d{1,2})/(\d{1,2})/(\d{4})", full)
         if m:
-            month, day, year, hh, mm, ss, ampm = m.groups()
-            try:
-                hour = int(hh)
-                if ampm:
-                    ampm = ampm.upper()
-                    if ampm == "PM" and hour != 12:
-                        hour += 12
-                    if ampm == "AM" and hour == 12:
-                        hour = 0
+            a, b, y = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
-                dt = datetime(
-                    int(year), int(month), int(day),
-                    hour, int(mm), int(ss),
-                    tzinfo=timezone.utc
-                )
-                return dt
+            # încercăm dd/mm, apoi mm/dd
+            dt = None
+            try:
+                dt = datetime(y, b, a, tzinfo=timezone.utc)  # dd/mm
             except ValueError:
-                return None
+                dt = None
+
+            if dt is None:
+                try:
+                    dt = datetime(y, a, b, tzinfo=timezone.utc)  # mm/dd
+                except ValueError:
+                    dt = None
+
+            if dt is not None:
+                return dt
 
         # 3) fallback vechi: dd.mm.yyyy
-        text = soup.get_text(" ", strip=True)
-        m = DATE_RE.search(text)
+        m = DATE_RE.search(full.replace("\n", " "))
         if m:
             dd, mm, yyyy = map(int, m.groups())
             try:

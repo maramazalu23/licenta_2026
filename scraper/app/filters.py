@@ -7,13 +7,13 @@ HARD_BAN_STRICT = [
     "tastatura", "mouse", "încărcător", "incarcator", "alimentator",
     "ventilator",
     "placa de baza", "placa baza", "motherboard",
-    "balama", "carcasa", "carcasă",
+    "balama", "balamale", "carcasa", "carcasă",
     "dezmembr", "dezmembrez", "dezmembrari", "piese",
     "service", "repar", "repara", "reparatii", "reparații",
     "monitor", "tv", "televizor",
     "imprimanta", "printer", "scanner",
     "router", "switch", "stick",
-    "sacosa", "cosa", "husa"
+    "sacosa", "cosa", "husa", "geanta"
 ]
 
 HARD_BAN_SOFT = [

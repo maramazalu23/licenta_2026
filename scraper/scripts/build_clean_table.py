@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-import sqlite3
-from pathlib import Path
-from typing import Any, Dict
 import json
+import sqlite3
+from typing import Any, Dict
+from datetime import timezone
 
-from app.config.base import BASE_DIR
+from app.config.base import DB_PATH
+
 from app.models import Product
 from app.cleaning.normalize import (
     normalize_location,
     normalize_condition,
     effective_posted_at,
-    price_ron_float,
     normalize_title,
 )
-
-DB_PATH = Path(BASE_DIR) / "data_out" / "products.db"
-
 
 CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS products_clean (
@@ -43,7 +40,6 @@ CREATE TABLE IF NOT EXISTS products_clean (
     scrape_run_id TEXT
 );
 """
-
 
 def row_to_product(row: dict):
     # specs_raw vine din sqlite ca TEXT (JSON string) -> îl facem dict
@@ -84,11 +80,15 @@ def main():
         p = row_to_product(d)
 
         loc_clean, county, city = normalize_location(p.location)
-        cond = normalize_condition(p)
+        cond = normalize_condition(
+            p.condition,
+            source=p.source,
+            specs_raw=p.specs_raw if isinstance(p.specs_raw, dict) else None,
+        )
         posted = effective_posted_at(p)
 
         title_clean = normalize_title(p.title)
-        price_ron = price_ron_float(p.price)
+        price_ron = p.price_value
 
         cur.execute(
             """
@@ -129,7 +129,9 @@ def main():
                 title_clean, p.brand_guess, p.model_guess, p.mpn_guess,
                 price_ron, p.currency,
                 loc_clean, county, city,
-                cond, posted.isoformat(), p.scraped_at.astimezone(posted.tzinfo).isoformat(),
+                cond,
+                posted.isoformat(),
+                p.scraped_at.astimezone(timezone.utc).isoformat(),
                 p.scrape_run_id,
             ),
         )

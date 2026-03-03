@@ -1,6 +1,6 @@
 import sqlite3
-
-c = sqlite3.connect("data_out/products.db")
+from app.config.base import DB_PATH
+c = sqlite3.connect(DB_PATH)
 
 def s(q, p=()):
     return c.execute(q, p).fetchone()[0]

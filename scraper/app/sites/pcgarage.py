@@ -297,9 +297,9 @@ class PcGarageScraper(SiteScraper):
             node = soup.select_one(sel)
             if node:
                 txt = clean_text(node.get_text(" ", strip=True))
-                html = str(node)
+                node_html = str(node)
                 if txt:
-                    return txt, html
+                    return txt, node_html
 
         return None, None
     
@@ -331,3 +331,32 @@ class PcGarageScraper(SiteScraper):
         if "precomanda" in text or "precomand" in text:
             return "PreOrder"
         return None
+
+    @staticmethod
+    def _offers_to_price_currency(offers) -> tuple[str | None, str | None]:
+        """
+        Normalizează structura schema.org offers (dict sau list).
+        Returnează (price_str, currency) sau (None, None).
+        """
+        if not offers:
+            return None, None
+
+        def _pick(o: dict) -> tuple[str | None, str | None]:
+            if not isinstance(o, dict):
+                return None, None
+            price = o.get("price") or o.get("lowPrice") or o.get("highPrice")
+            cur = o.get("priceCurrency")
+            if price is None:
+                return None, None
+            return str(price), (str(cur) if cur else "RON")
+
+        if isinstance(offers, dict):
+            return _pick(offers)
+
+        if isinstance(offers, list):
+            for off in offers:
+                price, cur = _pick(off)
+                if price is not None:
+                    return price, cur
+
+        return None, None

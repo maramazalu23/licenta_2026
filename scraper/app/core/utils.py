@@ -116,6 +116,45 @@ def guess_model(title: str) -> Optional[str]:
             out = " ".join(parts)
             out = re.sub(r"\s+", " ", out).strip()
             return out or None
+        
+    # 2.1) Lenovo ThinkBook: "ThinkBook 16 G8 IRL"
+    m = re.search(r"\bThinkBook\s+(\d{2})\s+G(\d)\s+([A-Z0-9]{2,6})\b", t, re.IGNORECASE)
+    if m:
+        # păstrăm formatul frumos
+        return f"ThinkBook {m.group(1)} G{m.group(2)} {m.group(3).upper()}"
+
+    # 2.2) Lenovo LOQ: "LOQ 15IAX9" / "LOQ Essential 15IRX11"
+    m = re.search(r"\bLOQ\s+(Essential\s+)?(\d{2}[A-Z0-9]{3,6})\b", t, re.IGNORECASE)
+    if m:
+        essential = (m.group(1) or "").strip()
+        code = m.group(2).upper()
+        if essential:
+            return f"LOQ Essential {code}"
+        return f"LOQ {code}"
+
+    # 2.3) Lenovo V15: "V15 G4 IRU" / "V15 G4 AMN"
+    m = re.search(r"\bV(\d{2})\s+G(\d)\s+([A-Z]{2,4})\b", t, re.IGNORECASE)
+    if m:
+        return f"V{m.group(1)} G{m.group(2)} {m.group(3).upper()}"
+
+    # 2.4) HP 17-cn3004nq (coduri hp de tip xx-yy1234zz)
+    m = re.search(r"\b(\d{2}-[a-z]{2}\d{4}[a-z0-9]{0,3})\b", t, re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+    
+    # 2.5) Gigabyte A16 3VH / A16 CTH
+    m = re.search(r"\bA(\d{2})\s+([A-Z0-9]{3})\b", t, re.IGNORECASE)
+    if m:
+        return f"A{m.group(1)} {m.group(2).upper()}"
+    
+    # HP/alte branduri: coduri gen 17-cn3004nq (cu cratimă)
+    m = re.search(r"\b(\d{2}-[a-z]{2}\d{4}[a-z0-9]{0,3})\b", t, re.IGNORECASE)
+    if m:
+        return m.group(1).lower()
+    
+    m = re.search(r"\bV(\d{2})\s+G(\d)\s+([A-Z]{2,4})\b", t, re.IGNORECASE)
+    if m:
+        return f"V{m.group(1)} G{m.group(2)} {m.group(3).upper()}"
 
     # 3) Fallback: caută coduri alfanumerice “de model” (F1605ZA, ANV15-52, 3750ZG etc),
     # dar evită CPU/GPU/RAM/SSD.

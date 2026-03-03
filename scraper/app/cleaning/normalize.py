@@ -14,7 +14,7 @@ from app.core.utils import clean_text
 BAD_LOC_SUBSTR = (
     "adaugă anunț",
     "acasă",
-    "publi",
+    "publi24",
     "cookie",
     "consent",
     "gdpr",
@@ -46,27 +46,63 @@ def normalize_location(location: Optional[str]) -> Tuple[Optional[str], Optional
     return loc, None, parts[0]
 
 
-def normalize_condition(p: Product) -> Optional[str]:
+def normalize_condition(
+    condition: Optional[str],
+    *,
+    source: Optional[str] = None,
+    specs_raw: Optional[dict] = None,
+) -> Optional[str]:
     """
-    Încercăm să scoatem o condiție standard: new/used/unknown.
-    - Publi24: în scraper tu bagi uneori specs_raw["stare"] (ex: "folosit"). :contentReference[oaicite:2]{index=2}
-    - PCGarage: de regulă e nou (site retail).
+    Normalizează condiția în: 'new' / 'used' / None
+    Acceptă RO/EN: nou/sigilat/nefolosit, folosit/utilizat/uzat, second-hand/sh etc.
     """
-    # dacă ai ceva explicit în specs_raw
-    if p.specs_raw and isinstance(p.specs_raw, dict):
-        stare = p.specs_raw.get("stare")
+
+    # 1) ia din specs_raw dacă există (ex: publi24 -> specs_raw["stare"])
+    cand = None
+    if specs_raw and isinstance(specs_raw, dict):
+        stare = specs_raw.get("stare")
         if isinstance(stare, str) and stare.strip():
-            s = stare.strip().lower()
-            if s in ("nou", "sigilat", "nefolosit"):
-                return "new"
-            if s in ("folosit", "second", "utilizat", "uzat"):
-                return "used"
+            cand = stare
+
+    # 2) fallback pe condition text
+    if cand is None:
+        cand = condition
+
+    if not cand:
+        # fallback sigur pe sursă (retail)
+        if (source or "").lower() == "pcgarage":
+            return "new"
+        return None
+
+    s = cand.strip().lower()
+
+    # normalizează separatori / variații
+    s = s.replace("-", " ").replace("_", " ")
+    s = " ".join(s.split())
+
+    NEW = {
+        "nou", "sigilat", "nefolosit", "nou nout", "noua", "nouă", "noua nout",
+        "brand new", "new", "sealed",
+    }
+    USED = {
+        "folosit", "utilizat", "uzat", "second hand", "second", "sh", "used",
+        "refurbished", "reconditionat", "recondiționat",
+    }
+
+    if s in NEW:
+        return "new"
+    if s in USED:
+        return "used"
+
+    # pattern-uri (în caz că apare în propoziție)
+    if any(k in s for k in ("sigilat", "nefolosit", "brand new")):
+        return "new"
+    if any(k in s for k in ("folosit", "second hand", "second-hand", "utilizat", "uzat", "sh")):
+        return "used"
 
     # fallback per sursă
-    if p.source == "pcgarage":
+    if (source or "").lower() == "pcgarage":
         return "new"
-    if p.source == "publi24":
-        return "used"
 
     return None
 
@@ -83,17 +119,7 @@ def effective_posted_at(p: Product) -> datetime:
     return dt.astimezone(timezone.utc)
 
 
-def price_ron_float(price: Optional[Decimal]) -> Optional[float]:
-    if price is None:
-        return None
-    try:
-        return float(price)
-    except Exception:
-        return None
-
-
 def normalize_title(title: str) -> str:
-    t = clean_text(title)
-    # scoate spam clasic
+    t = clean_text(title) or ""
     t = re.sub(r"(?i)\b(sigillat|sigilat!!+|urgent|super oferta|oferta)\b", "", t)
-    return clean_text(t)
+    return clean_text(t) or ""
