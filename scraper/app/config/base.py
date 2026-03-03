@@ -21,7 +21,7 @@ HTTP = HttpConfig()
 
 # Căile pentru stocare
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DB_PATH = os.path.join(BASE_DIR, "data_out", "scraper.db")
+DB_PATH = os.path.join(BASE_DIR, "data_out", "products.db")
 
 # Ne asigurăm că folderul data_out există
 os.makedirs(os.path.join(BASE_DIR, "data_out"), exist_ok=True)

@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import random
 import time
+import requests
+import atexit
+import re
+import gzip
+import logging
+import os
+
+from app.config.sites import POLICIES
+from collections import defaultdict
+from app.config.base import HTTP, BASE_DIR
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 from urllib.parse import urlsplit
 
-import requests
-from app.config.base import HTTP
-
-import atexit
-
-import os
-import re
-import gzip
-from collections import defaultdict
+logger = logging.getLogger("scraper.http")
 
 try:
     from playwright.sync_api import sync_playwright
@@ -28,30 +30,6 @@ class FetchResult:
     status_code: int
     text: str
     elapsed_ms: int
-
-POLICIES = {
-    "pcgarage.ro": {
-        "strategy": "JS_REQUIRED",     # dacă 403 -> JS imediat
-        "timeout_s": 30,
-        "min_len": 30_000,
-        "must_contain": "/notebook-laptop/",
-        "fail_threshold": 1,
-    },
-    "publi24.ro": {
-        "strategy": "JS_IF_SHELL",     # încearcă requests, apoi JS dacă pare shell/challenge
-        "timeout_s": 20,
-        "min_len": 15_000,
-        "must_contain": "/anunt/",
-        "fail_threshold": 2,
-    },
-    "default": {
-        "strategy": "REQUESTS_ONLY",
-        "timeout_s": 15,
-        "min_len": 10_000,
-        "must_contain": None,
-        "fail_threshold": 3,
-    },
-}
 
 BLOCKED_TITLE_PATTERNS = [
     r"just a moment",
@@ -69,6 +47,21 @@ TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 class HttpClient:
     def __init__(self):
         self.session = requests.Session()
+
+        # User-Agent rotation (mică listă realistă)
+        self.user_agents = [
+            # Chrome Windows
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            # Edge Windows
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            # Firefox Windows
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+            # Chrome macOS
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            # Firefox macOS
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 13.6; rv:123.0) Gecko/20100101 Firefox/123.0",
+        ]
+
         self.session.headers.update({
             "User-Agent": HTTP.user_agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
@@ -90,23 +83,23 @@ class HttpClient:
             "sec-ch-ua-platform": '"Windows"',
         })
 
-        
-
         self._pw = None
         self._browser = None
-        self._context_by_domain = {}
+        self._context_by_domain: dict[str, Any] = {}
+        self._context_meta: dict[str, dict[str, Any]] = {}  # ex: {"pcgarage.ro": {"headless": True}}
+        self._state_dir = os.path.join(BASE_DIR, "data_out", "browser_state")
+        os.makedirs(self._state_dir, exist_ok=True)
         atexit.register(self.close)
         self.js_mode_domains = set()              # domenii promovate la JS în acest run
         self.failure_counter = defaultdict(int)   # eșecuri consecutive pe requests
+        self._closed = False
 
     def polite_sleep(self):
         """Pauză variabilă pentru a imita comportamentul uman."""
         time.sleep(random.uniform(HTTP.min_delay_s, HTTP.max_delay_s))
 
     def _get_policy(self, domain: str) -> Dict[str, Any]:
-        # map netloc la domeniul de policy (ex: www.pcgarage.ro -> pcgarage.ro)
-        if domain.startswith("www."):
-            domain = domain[4:]
+        domain = self._normalize_domain(domain)
         return POLICIES.get(domain, POLICIES["default"])
 
     def _extract_title(self, html: str) -> str:
@@ -121,7 +114,7 @@ class HttpClient:
             return True
         low = (html or "").lower()
         # indicatori generali de challenge
-        if "cloudflare" in low or "challenge" in low or "cf-" in low and "captcha" in low:
+        if "cloudflare" in low or "challenge" in low or ("cf-" in low and "captcha" in low):
             return True
         return False
 
@@ -144,6 +137,9 @@ class HttpClient:
             return True
 
         return False
+    
+    def _choose_ua(self) -> str:
+        return random.choice(self.user_agents) if getattr(self, "user_agents", None) else HTTP.user_agent
 
     def get(self, url: str, params: Optional[Dict[str, Any]] = None) -> FetchResult:
         last_exc = None
@@ -151,9 +147,7 @@ class HttpClient:
             start = time.time()
             try:
                 parts = urlsplit(url)
-                domain = parts.netloc.lower()
-                if domain.startswith("www."):
-                    domain = domain[4:]
+                domain = self._normalize_domain(parts.netloc)
 
                 policy = self._get_policy(domain)
                 timeout_s = policy.get("timeout_s", HTTP.timeout_s)
@@ -165,8 +159,9 @@ class HttpClient:
                 base_referer = f"{parts.scheme}://{parts.netloc}/"
                 headers = dict(self.session.headers)
                 headers["Referer"] = base_referer
+                headers["User-Agent"] = self._choose_ua()
 
-                timeout_s = policy.get("timeout_s", HTTP.timeout_s)
+                logger.debug("UA: %s", headers["User-Agent"])
 
                 resp = self.session.get(url, params=params, headers=headers, timeout=timeout_s)
 
@@ -174,7 +169,7 @@ class HttpClient:
                 if resp.status_code in (429, 503):
                     self.failure_counter[domain] += 1
                     backoff = HTTP.backoff_base_s * (2 ** (attempt - 1))
-                    print(f"Rate limited ({resp.status_code}) la {url}. Retry {attempt} după {backoff}s...")
+                    logger.warning("Rate limited (%s) la %s. Retry %s după %ss...", resp.status_code, url, attempt, backoff)
                     time.sleep(backoff)
                     continue
 
@@ -182,7 +177,7 @@ class HttpClient:
                 if resp.status_code == 403 and domain == "pcgarage.ro":
                     self.failure_counter[domain] += 1
                     self.js_mode_domains.add(domain)
-                    print(f"[http] 403 la {url} -> JS mode pentru {domain} (Playwright)")
+                    logger.warning("[http] 403 la %s -> JS mode pentru %s (Playwright)", url, domain)
                     return self.get_js(url, params=params)
 
                 # text normal
@@ -206,7 +201,7 @@ class HttpClient:
                         self.failure_counter[domain] += 1
                         if self.failure_counter[domain] >= int(policy.get("fail_threshold", 2)):
                             self.js_mode_domains.add(domain)
-                            print(f"[http] Switch JS mode pentru {domain} (failures={self.failure_counter[domain]}): {url}")
+                            logger.warning("[http] Switch JS mode pentru %s (failures=%s): %s", domain, self.failure_counter[domain], url)
                             return self.get_js(url, params=params)
 
                 # dacă requests a mers bine, resetăm failures
@@ -218,7 +213,7 @@ class HttpClient:
             except requests.RequestException as e:
                 last_exc = e
                 backoff = HTTP.backoff_base_s * (2 ** (attempt - 1))
-                print(f"Eroare rețea la {url}: {e}. Retry în {backoff}s...")
+                logger.warning("Eroare rețea la %s: %s. Retry în %ss...", url, e, backoff)
                 time.sleep(backoff)
 
         raise RuntimeError(f"GET failed after {HTTP.max_retries} retries for {url}: {last_exc}")
@@ -230,22 +225,77 @@ class HttpClient:
         if self._pw is None:
             self._pw = sync_playwright().start()
 
-        if self._browser is None:
-            self._browser = self._pw.chromium.launch(headless=True)
+    def _normalize_domain(self, domain: str) -> str:
+        # Unificăm pcgarage.ro și www.pcgarage.ro
+        domain = domain.lower().strip()
+        if domain.startswith("www."):
+            domain = domain[4:]
+        return domain
+    
+    def _reset_context(self, domain: str) -> None:
+        domain = self._normalize_domain(domain)
+        ctx = self._context_by_domain.pop(domain, None)
+        self._context_meta.pop(domain, None)
+        if ctx is not None:
+            try:
+                ctx.close()
+            except Exception:
+                pass
 
-    def _get_context(self, domain: str):
+    def _get_context(self, domain: str, *, force_headless: Optional[bool] = None):
         self._ensure_playwright()
+        domain = self._normalize_domain(domain)
+
+        # dacă există deja și nu cerem alt tip de headless, îl refolosim
         ctx = self._context_by_domain.get(domain)
-        if ctx is None:
-            ctx = self._browser.new_context(
-                user_agent=self.session.headers.get("User-Agent"),
-                locale="ro-RO",
-                extra_http_headers={
-                    "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
-                    "Upgrade-Insecure-Requests": "1",
-                },
-            )
-            self._context_by_domain[domain] = ctx
+        if ctx is not None and force_headless is None:
+            return ctx
+
+        # dacă există deja, dar vrem alt headless/headful -> îl resetăm
+        if ctx is not None and force_headless is not None:
+            meta = self._context_meta.get(domain, {})
+            if meta.get("headless") != force_headless:
+                self._reset_context(domain)
+                ctx = None
+
+        if ctx is not None:
+            return ctx
+
+        state_root = os.path.join(BASE_DIR, "data_out", "browser_profile")
+        os.makedirs(state_root, exist_ok=True)
+        user_data_dir = os.path.join(state_root, domain)
+
+        policy = self._get_policy(domain)
+
+        # headless: dacă nu e forțat, luăm din policy (dacă există), altfel din env
+        if force_headless is None:
+            if "headless" in policy:
+                headless = bool(policy["headless"])
+            else:
+                headless = os.getenv("PW_HEADLESS", "1") not in ("0", "false", "False")
+        else:
+            headless = force_headless
+
+        ua = self._choose_ua()
+
+        ctx = self._pw.chromium.launch_persistent_context(
+            user_data_dir=user_data_dir,
+            headless=headless,
+            locale="ro-RO",
+            user_agent=ua,
+            viewport={"width": 1366, "height": 768},
+            args=[
+                "--disable-blink-features=AutomationControlled",
+            ],
+        )
+
+        ctx.set_extra_http_headers({
+            "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Upgrade-Insecure-Requests": "1",
+        })
+
+        self._context_by_domain[domain] = ctx
+        self._context_meta[domain] = {"headless": headless, "user_agent": ua}
         return ctx
 
     def get_js(
@@ -260,50 +310,102 @@ class HttpClient:
             sep = "&" if "?" in url else "?"
             url = f"{url}{sep}{urlencode(params, doseq=True)}"
 
-        if timeout_s is None:
-            timeout_s = HTTP.timeout_s
+        last_exc: Exception | None = None
 
-        start = time.time()
-        parts = urlsplit(url)
-        domain = parts.netloc.lower()
-        if domain.startswith("www."):
-            domain = domain[4:]
+        for attempt in range(1, HTTP.max_retries + 1):
+            start = time.time()
 
-        ctx = self._get_context(domain)
-        page = ctx.new_page()
+            parts = urlsplit(url)
+            domain = self._normalize_domain(parts.netloc)
 
-        # blocăm resurse grele (mai rapid + mai puține șanse de anti-bot)
-        page.route(
-            "**/*",
-            lambda route, request: route.abort()
-            if request.resource_type in ("image", "media", "font")
-            else route.continue_(),
-        )
+            policy = self._get_policy(domain)
 
-        try:
-            resp = page.goto(
-                url,
-                wait_until="domcontentloaded",
-                timeout=int(float(timeout_s) * 1000),
-            )
+            max_retries = int(policy.get("max_retries", HTTP.max_retries))
+            backoff_base = float(policy.get("backoff_base_s", HTTP.backoff_base_s))
+            timeout_policy = policy.get("timeout_s", HTTP.timeout_s)
 
-            # uneori challenge-ul cere puțin timp
-            page.wait_for_timeout(1200)
+            # timeout: param explicit > policy > HTTP default
+            effective_timeout = timeout_policy if timeout_s is None else timeout_s
 
-            html = page.content()
-            status = resp.status if resp else 0
-            elapsed_ms = int((time.time() - start) * 1000)
+            page = None
+            try:
+                ctx = self._get_context(domain)
+                page = ctx.new_page()
 
-            return FetchResult(
-                url=url,
-                status_code=status,
-                text=html,
-                elapsed_ms=elapsed_ms,
-            )
-        finally:
-            page.close()
+                # blocăm resurse grele (mai rapid + mai puține șanse de anti-bot)
+                page.route(
+                    "**/*",
+                    lambda route, request: route.abort()
+                    if request.resource_type in ("image", "media", "font")
+                    else route.continue_(),
+                )
+
+                resp = page.goto(
+                    url,
+                    wait_until="domcontentloaded",  # mai stabil decât networkidle pe site-uri cu multe requesturi
+                    timeout=int(float(effective_timeout) * 1000),
+                )
+
+                page.wait_for_timeout(1200)
+                html = page.content()
+                status = resp.status if resp else 0
+                elapsed_ms = int((time.time() - start) * 1000)
+
+                # dacă suntem blocați (403 / challenge), retry + pentru pcgarage încercăm headful automat
+                if domain == "pcgarage.ro":
+                    if status in (403, 429, 503) or self._looks_blocked(html) or self._looks_shell_or_bad(policy, html):
+                        meta = self._context_meta.get(domain, {})
+                        was_headless = bool(meta.get("headless", True))
+
+                        # prima dată: dacă era headless, refacem contextul headful și dăm retry
+                        if was_headless:
+                            logger.warning("[js] pcgarage blocked in headless -> recreate context headful and retry: %s", url)
+                            self._reset_context(domain)
+                            # refacem context headful
+                            _ = self._get_context(domain, force_headless=False)
+                        raise RuntimeError(f"Blocked/403 in JS for {domain} (status={status})")
+
+                return FetchResult(
+                    url=url,
+                    status_code=status,
+                    text=html,
+                    elapsed_ms=elapsed_ms,
+                )
+
+            except Exception as e:
+                last_exc = e
+
+                # IMPORTANT: folosim max_retries din policy dacă există
+                backoff = backoff_base * (2 ** (attempt - 1))
+                logger.warning(
+                    "[js] Eroare Playwright la %s (%s/%s): %s: %s. Retry în %.1fs",
+                    url,
+                    attempt,
+                    max_retries,
+                    type(e).__name__,
+                    e,
+                    backoff,
+                )
+                time.sleep(backoff)
+
+                # dacă policy-ul cere mai puține retry-uri decât HTTP.max_retries, ieșim devreme
+                if attempt >= max_retries:
+                    break
+
+            finally:
+                if page is not None:
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
+
+        assert last_exc is not None
+        raise last_exc
 
     def close(self):
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
         # cleanup la ieșirea din program
         try:
             for ctx in self._context_by_domain.values():

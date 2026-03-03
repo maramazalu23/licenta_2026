@@ -1,10 +1,23 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Environments
 .env
-data_out/scraper.db
-data_out/raw/
-logs/
-debug/
 .venv/
+env/
+venv/
+
+# Database and Data
+*.db
+data_out/
+debug/
+logs/
+
+# IDEs
 .vscode/
 .idea/
+
+# Testing (dacă vrei să ignori folderul de teste pe GitHub)
+# tests/

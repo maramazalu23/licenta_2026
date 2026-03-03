@@ -2,14 +2,23 @@ from __future__ import annotations
 
 import os
 import uuid
-import time # Adăugat pentru cronometrare
+import time
+import logging
+from pathlib import Path
+
+from app.config.base import BASE_DIR
 from dataclasses import dataclass
 from typing import List, Optional
-
 from app.models import Product
 from app.storage.sqlite import SqliteStore
 from app.sites.base import SiteScraper
-from app.filters import is_valid_publi24_laptop
+from datetime import datetime, timezone
+from app.storage.csv_writer import write_products_csv
+
+logger = logging.getLogger("scraper.pipeline")
+
+DEBUG_DIR = Path(BASE_DIR) / "data_out" / "debug"
+DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class RunStats:
@@ -17,10 +26,13 @@ class RunStats:
     site_name: str
     category: str
     pages_requested: int
+    started_at: str = ""
+    finished_at: str = ""
     duration_s: float = 0.0 # Nou
     listing_pages_ok: int = 0
     detail_pages_ok: int = 0
-    products_parsed: int = 0
+    products_parsed_total: int = 0  # total produse pentru care am rulat parse_detail_page (înainte de filtru)
+    products_parsed: int = 0        # produse păstrate (după filtru)
     products_upserted: int = 0
     products_inserted: int = 0
     products_updated: int = 0
@@ -44,42 +56,43 @@ def run_scrape(
         pages_requested=max_pages,
     )
 
+    stats.started_at = datetime.now(timezone.utc).isoformat()
+
     products: List[Product] = []
     listing_urls = list(site.iter_listing_urls(category=category, max_pages=max_pages))
 
-    print(f"--- Starting Scrape Run [{run_id}] for {site_name} ---")
+    logger.info("--- Starting Scrape Run [%s] for %s ---", run_id, site_name)
 
     for li, listing_url in enumerate(listing_urls, start=1):
         try:
-            site.http.polite_sleep()
             listing_res = site.http.get(listing_url)
 
             if listing_res.status_code != 200:
                 stats.errors += 1
-                print(f"[{site_name}] Listing page FAIL {listing_res.status_code}: {listing_url}")
+                logger.warning("[%s] Listing page FAIL %s: %s", site_name, listing_res.status_code, listing_url)
                 continue
 
             stats.listing_pages_ok += 1
             detail_urls = site.parse_listing_page(listing_res.text)
 
             if not detail_urls:
-                # debug: salvează HTML listing într-un folder stabil
-                from pathlib import Path
-
-                DEBUG_DIR = Path("data_out") / "debug"
-                DEBUG_DIR.mkdir(parents=True, exist_ok=True)
-
                 debug_path = DEBUG_DIR / f"{site_name}_listing_empty_{run_id}_p{li}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
                     f.write(listing_res.text)
 
-                print(f"[debug] Saved empty listing HTML to: {debug_path}")
+                logger.info("[debug] Saved empty listing HTML to: %s", debug_path)
 
-            print(f"[{site_name}] Page {li}/{len(listing_urls)}: Found {len(detail_urls)} items")
+            logger.info("[%s] Page %s/%s: Found %s items", site_name, li, len(listing_urls), len(detail_urls))
+
+            seen_detail: set[str] = set()
 
             for durl in detail_urls:
+                if durl in seen_detail:
+                    continue
+                seen_detail.add(durl)
                 if max_products is not None and len(products) >= max_products:
                     stats.duration_s = round(time.time() - start_time, 2)
+                    stats.finished_at = datetime.now(timezone.utc).isoformat()
                     return products, stats
 
                 try:
@@ -94,12 +107,20 @@ def run_scrape(
                     
                     # Aici se produce magia: Parser + Pydantic Validation
                     p = site.parse_detail_page(detail_res.text, url=durl, category=category)
+                    stats.products_parsed_total += 1
 
-                    # Filtru MVP pentru Publi24: eliminăm accesorii din categoria "laptopuri"
-                    if site_name == "publi24" and category == "laptopuri":
-                        if not is_valid_publi24_laptop(p.title, p.description_text, p.url):
-                            stats.products_filtered += 1
-                            continue
+                    # Filtrare site-specific (implementată în scraper; default True)
+                    try:
+                        keep = site.filter_product(p)
+                    except Exception as e:
+                        stats.errors += 1
+                        logger.warning("Filter error for %s: %s: %s", p.url, type(e).__name__, e)
+                        keep = False
+
+                    if not keep:
+                        # IMPORTANT: trebuie să existe în RunStats (dacă nu, îl adăugăm la pasul următor)
+                        stats.products_filtered += 1
+                        continue
 
                     p.source = site_name
                     p.http_status = detail_res.status_code
@@ -110,17 +131,19 @@ def run_scrape(
                     stats.products_parsed += 1
 
                     if stats.products_parsed % 5 == 0:
-                        print(f"   > Parsed {stats.products_parsed} products...")
+                        logger.info("   > Kept %s products (parsed_total=%s, filtered=%s).",
+                        stats.products_parsed, stats.products_parsed_total, stats.products_filtered)
 
                 except Exception as e:
                     stats.errors += 1
-                    print(f"   ! Error parsing {durl}: {type(e).__name__}: {e}")
+                    logger.warning("   ! Error parsing %s: %s: %s", durl, type(e).__name__, e)
 
         except Exception as e:
             stats.errors += 1
-            print(f"!!! Critical Listing Error: {type(e).__name__}: {e}")
-
+            logger.exception("!!! Critical Listing Error: %s: %s", type(e).__name__, e)
+        
     stats.duration_s = round(time.time() - start_time, 2)
+    stats.finished_at = datetime.now(timezone.utc).isoformat()
     return products, stats
 
 def run_and_store(
@@ -146,11 +169,20 @@ def run_and_store(
         stats.products_inserted = inserted
         stats.products_updated = updated
 
-        print(
-            f"--- Finished: Upserted {upserted}/{len(products)} "
-            f"(inserted={inserted}, updated={updated}) in {stats.duration_s}s ---"
+        store.insert_scrape_run(stats)
+        logger.info("[db] Saved run summary to scrape_runs: %s", stats.scrape_run_id)
+
+        logger.info(
+            "--- Finished: Upserted %s/%s (inserted=%s, updated=%s) in %ss ---",
+            upserted, len(products), inserted, updated, stats.duration_s
         )
+
+        export_path = Path(BASE_DIR) / "data_out" / "exports" / f"{site_name}_{stats.scrape_run_id}.csv"
+        write_products_csv(products, export_path)
+        logger.info("[export] Wrote CSV: %s", export_path)
     else:
-        print("--- Finished: No products were found/parsed. ---")
-        
+        logger.warning("--- Finished: No products were found/parsed. ---")
+        store = SqliteStore(db_path=db_path) if db_path else SqliteStore()
+        store.insert_scrape_run(stats)
+        logger.info("[db] Saved run summary to scrape_runs: %s", stats.scrape_run_id)        
     return stats
