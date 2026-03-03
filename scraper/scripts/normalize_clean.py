@@ -483,7 +483,9 @@ def main():
     col_brand = pick("brand_guess", "brand", "brand_clean")
     col_specs = pick("specs_raw", "specs", "specs_clean")
 
-    needed = [c for c in [col_source, col_url, col_title, col_desc, col_brand, col_specs] if c is not None]
+    col_cond_existing = pick("condition_norm")
+
+    needed = [c for c in [col_source, col_url, col_title, col_desc, col_brand, col_specs, col_cond_existing] if c is not None]
     rows = cur.execute("SELECT rowid, " + ", ".join(needed) + " FROM products_clean").fetchall()
 
     updated = 0
@@ -493,6 +495,7 @@ def main():
         title = (r[col_title] if col_title else "") or ""
         desc = (r[col_desc] if col_desc else "") or ""
         raw_brand = (r[col_brand] if col_brand else None)
+        existing_cond = (r[col_cond_existing] if col_cond_existing else None)
 
         specs = None
         if col_specs and r[col_specs]:
@@ -521,9 +524,18 @@ def main():
                 m_norm = guess_model_norm(t_norm)
 
         # Publi24 = marketplace second-hand -> default used if we can't infer from text/specs
+        # 1) încearcă să deduci din text/specs
         cond = norm_condition(title, desc, specs)
+
+        # 2) pcgarage = retail -> new
         if source.lower() == "pcgarage":
             cond = "new"
+
+        # 3) dacă NU am dedus nimic, păstrează ce era deja în products_clean
+        if not cond and existing_cond:
+            cond = existing_cond
+
+        # 4) abia acum, fallback publi24 => used (doar dacă încă e gol)
         if not cond and source.lower() == "publi24":
             cond = "used"
 
