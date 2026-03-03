@@ -223,8 +223,8 @@ class SqliteStore:
                 price_str = str(p.price) if p.price is not None else None
                 price_val = float(p.price) if p.price is not None else None
 
-                condition = None
-                if p.specs_raw and isinstance(p.specs_raw, dict):
+                condition = getattr(p, "condition", None)
+                if not condition and p.specs_raw and isinstance(p.specs_raw, dict):
                     condition = p.specs_raw.get("stare")
 
                 params = (

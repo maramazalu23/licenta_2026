@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
-import time # Adăugat pentru cronometrare
+import time
 import logging
 from pathlib import Path
 
@@ -31,7 +31,8 @@ class RunStats:
     duration_s: float = 0.0 # Nou
     listing_pages_ok: int = 0
     detail_pages_ok: int = 0
-    products_parsed: int = 0
+    products_parsed_total: int = 0  # total produse pentru care am rulat parse_detail_page (înainte de filtru)
+    products_parsed: int = 0        # produse păstrate (după filtru)
     products_upserted: int = 0
     products_inserted: int = 0
     products_updated: int = 0
@@ -106,6 +107,7 @@ def run_scrape(
                     
                     # Aici se produce magia: Parser + Pydantic Validation
                     p = site.parse_detail_page(detail_res.text, url=durl, category=category)
+                    stats.products_parsed_total += 1
 
                     # Filtrare site-specific (implementată în scraper; default True)
                     try:
@@ -129,7 +131,8 @@ def run_scrape(
                     stats.products_parsed += 1
 
                     if stats.products_parsed % 5 == 0:
-                        logger.info("   > Parsed %s products...", stats.products_parsed)
+                        logger.info("   > Kept %s products (parsed_total=%s, filtered=%s).",
+                        stats.products_parsed, stats.products_parsed_total, stats.products_filtered)
 
                 except Exception as e:
                     stats.errors += 1

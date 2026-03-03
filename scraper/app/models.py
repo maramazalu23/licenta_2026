@@ -32,6 +32,7 @@ class Product(BaseModel):
     availability: Optional[str] = None
     location: Optional[str] = None
     posted_at: Optional[datetime] = None
+    condition: Optional[str] = None
 
     description_text: Optional[str] = None
     description_html: Optional[str] = None

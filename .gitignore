@@ -14,11 +14,10 @@ venv/
 data_out/
 debug/
 logs/
-db/
 
 # IDEs
 .vscode/
 .idea/
 
 # Testing (dacă vrei să ignori folderul de teste pe GitHub)
-tests/
+# tests/

@@ -154,6 +154,7 @@ class Publi24Scraper(SiteScraper):
         state = self._extract_state(soup)
         if state:
             specs_raw["stare"] = state
+        condition = state
 
         brand = guess_brand(title)
         mpn = guess_mpn(title or "") or guess_mpn(desc_text or "")
@@ -176,6 +177,7 @@ class Publi24Scraper(SiteScraper):
             availability=None,
             location=location,
             posted_at=posted_at,
+            condition=condition,
             description_text=desc_text,
             description_html=desc_html,
             brand_guess=brand,

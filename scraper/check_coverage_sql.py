@@ -26,7 +26,7 @@ QUERIES = {
                SUM(CASE WHEN model_guess IS NOT NULL THEN 1 ELSE 0 END) as model_ok,
                SUM(CASE WHEN location IS NOT NULL THEN 1 ELSE 0 END) as location_ok,
                SUM(CASE WHEN posted_at IS NOT NULL THEN 1 ELSE 0 END) as posted_ok
-        FROM products
+        FROM products_clean
         GROUP BY source
         ORDER BY n DESC;
     """,
