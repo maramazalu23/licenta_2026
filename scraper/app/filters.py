@@ -1,5 +1,6 @@
 import re
 
+# 1) HARD BAN strict (clar non-laptop)
 HARD_BAN_STRICT = [
     # accesorii/piese/servicii sau categorii clar non-laptop
     "boxe", "soundbar", "subwoofer", "audio", "amplificator",
@@ -8,38 +9,40 @@ HARD_BAN_STRICT = [
     "ventilator",
     "placa de baza", "placa baza", "motherboard",
     "balama", "balamale", "carcasa", "carcasă",
-    "dezmembr", "dezmembrez", "dezmembrari", "piese",
+    "dezmembr", "dezmembrez", "dezmembrari", "dezmembrări", "piese",
     "service", "repar", "repara", "reparatii", "reparații",
     "monitor", "tv", "televizor",
     "imprimanta", "printer", "scanner",
     "router", "switch", "stick",
-    "sacosa", "cosa", "husa", "geanta"
+    "sacosa", "sacoșa", "cosa", "husă", "husa", "geanta", "geantă",
+    "trackpad", "touchpad", "palmrest", "capac",
+    "desktop", "pc", "unitate", "unitate pc", "calculator", "sistem",
+    "tower", "carcasa pc", "carcasă pc",
+    "cd", "dvd", "cd extern", "dvd extern", "floppy", "fdd",
+    "hard extern", "hdd extern", "ssd extern",
+    "imprimanta", "printer", "scanner",
+    "monitor", "tv", "televizor",
 ]
 
-HARD_BAN_SOFT = [
-    # apar frecvent în titluri legitime de laptop
+# 2) Soft bans: cuvinte care apar și în anunțuri legitime (nu reject direct)
+SOFT_COMPONENT_WORDS = [
     "baterie", "acumulator",
     "ram", "memorie",
     "ssd", "hdd", "hard disk", "nvme",
     "display", "ecran",
 ]
 
-HARD_BAN = [
-    # non-laptop / accesorii / piese
-    "boxe", "soundbar", "subwoofer", "audio", "amplificator",
-    "casti", "căști", "headset",
-    "tastatura", "mouse", "încărcător", "incarcator", "alimentator",
-    "baterie", "acumulator", "ventilator",
-    "ram", "memorie", "ssd", "hdd", "hard disk", "nvme",
-    "placa de baza", "placa baza", "motherboard",
-    "display", "ecran", "balama", "carcasa", "carcasă",
-    "dezmembr", "dezmembrez", "dezmembrari", "piese",
-    "service", "repar", "repara", "reparatii", "reparații",
-    "monitor", "tv", "televizor", "cosa", "sacosa", 
-    "imprimanta", "printer", "scanner",
-    "router", "switch", "stick", "trackpad",
-    "capac", "touchpad", "palmrest",
+BUY_WANTED_BAN = ["cumpar", "cumpăr", "caut", "doresc", "vreau sa cumpar", "achizitionez"]
+
+DEFECT_PHRASES = [
+  "nu porneste", "nu pornește", "nu functioneaza", "nu funcționează",
+  "pentru piese", "de piese", "pt piese",
+  "bios parolat", "parola bios", "parolă bios",
+  "fara baterie", "fără baterie", "fara incarcator", "fără încărcător",
+  "placa video defecta", "placa de baza defecta", "placa bază defectă",
 ]
+
+DEFECT_WORDS = ["defect", "defecte", "spart", "sparta", "spartă", "crapat", "crăpat", "parolat"]
 
 ALLOW_KEYWORDS = [
     "laptop", "notebook", "ultrabook", "macbook",
@@ -65,24 +68,46 @@ def is_valid_publi24_laptop(title, desc, url):
 
 def explain_publi24_laptop_filter(title: str | None, desc: str | None, url: str | None = None) -> tuple[bool, str]:
     """
-    APLICA EXACT aceeași logică ca is_valid_publi24_laptop, dar întoarce și motivul.
-    Motivul te ajută să vezi dacă filtrul e prea agresiv.
+    Filtru scoring + explain pentru Publi24.
+    Returnează (keep, reason).
     """
     t = (title or "").lower()
     d = (desc or "").lower()
-    u = (url or "").lower()
     text = f"{t} {d}"
 
-    # 1) hard ban în titlu
+    for b in BUY_WANTED_BAN:
+        if re.search(rf"\b{re.escape(b)}\b", text):
+            return False, f"wanted_ban:{b}"
+
+    # 0) reject direct dacă sunt semnale clare de defect / pentru piese
+    for b in DEFECT_PHRASES:
+        if b in text:
+            return False, f"defect_ban:{b}"
+
+    for w in DEFECT_WORDS:
+        if re.search(rf"\b{re.escape(w)}\b", text):
+            return False, f"defect_ban:{w}"
+
+    # 1) hard ban strict în titlu (clar non-laptop)
     for b in HARD_BAN_STRICT:
         if re.search(rf"\b{re.escape(b)}\b", t):
             return False, f"title_hard_ban_strict:{b}"
-    
+
+    # 2) anti-"doar componentă": dacă titlul e despre o piesă și nu există semnale puternice de laptop, reject
+    has_soft_component_in_title = any(re.search(rf"\b{re.escape(w)}\b", t) for w in SOFT_COMPONENT_WORDS)
+    has_strong_laptop_signal = any(k in text for k in ("laptop", "notebook", "macbook"))
+    if has_soft_component_in_title and not has_strong_laptop_signal and not any(b in text for b in BRANDS):
+        return False, "reject_component_only"
+
     score = 0
     reasons = []
 
     # 3) semnale puternice
-    if any(k in text for k in ALLOW_KEYWORDS):
+    # laptop/notebook/macbook sunt foarte puternice
+    if any(k in text for k in ("laptop", "notebook", "macbook")):
+        score += 4
+        reasons.append("laptop_kw(+4)")
+    elif any(k in text for k in ALLOW_KEYWORDS):
         score += 3
         reasons.append("allow_kw(+3)")
 
@@ -102,14 +127,13 @@ def explain_publi24_laptop_filter(title: str | None, desc: str | None, url: str 
         score += 1
         reasons.append("ram_or_storage(+1)")
 
-    # 4) penalizare dacă apar hard-ban în descriere
+    # 4) penalizare dacă apar hard-ban în descriere (dar nu reject direct)
     desc_bans = [b for b in HARD_BAN_STRICT if re.search(rf"\b{re.escape(b)}\b", d)]
     if desc_bans:
         score -= 1
-        # nu listăm toate, doar primele 3 ca să nu umple log-ul
         sample = ",".join(desc_bans[:3])
         reasons.append(f"desc_hard_ban(-1):{sample}")
 
     keep = score >= 3
-    reason = f"{'ok' if keep else 'reject'}: score={score}; " + " ".join(reasons) if reasons else f"{'ok' if keep else 'reject'}: score={score}"
+    reason = (f"{'ok' if keep else 'reject'}: score={score}; " + " ".join(reasons)) if reasons else f"{'ok' if keep else 'reject'}: score={score}"
     return keep, reason

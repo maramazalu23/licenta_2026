@@ -15,12 +15,6 @@ BRANDS = [
 BRAND_REGEXES = [(b, re.compile(rf"\b{re.escape(b)}\b", re.IGNORECASE)) for b in BRANDS]
 MACBOOK_RE = re.compile(r"\bmacbook\b", re.IGNORECASE)
 
-# Acceptă și coduri care încep cu cifre (Lenovo: 16ARP10, 15IRX11 etc.)
-MODEL_TOKEN_RE = re.compile(r"\b([A-Z0-9]{2,12}(?:-[A-Z0-9]{1,6})?)\b")
-
-# Cazuri cu spațiu: "A16 3VH"
-MODEL_SPACE_RE = re.compile(r"\b([A-Z]{1,3}\d{1,3})\s+([A-Z0-9]{2,6})\b")
-
 BAD_PREFIXES = ("RTX", "GTX", "SSD", "RAM", "CORE", "RYZEN", "INTEL", "AMD", "GB", "HZ", "WUXGA", "FHD", "OLED")
 
 # prinde token-uri gen ANV15-41 / P1503CVA / E1504FA / 16ARP10 / 15IRX11
@@ -77,8 +71,6 @@ def guess_brand(title: str | None) -> str | None:
 
     return None
 
-def _has_letters_and_digits(s: str) -> bool:
-    return any(c.isalpha() for c in s) and any(c.isdigit() for c in s)
 
 def guess_model(title: str) -> Optional[str]:
     t = (title or "").strip()
@@ -93,10 +85,7 @@ def guess_model(title: str) -> Optional[str]:
             out = " ".join(parts).strip()
             return out or None
 
-    low = t.lower()
-
     # 2) Brand/series keywords (ex: ThinkPad P51, Legion 5, Nitro V 15)
-    # încearcă să întoarcă "ThinkPad P51" / "Legion Pro 7" / "Nitro V 15" etc.
     SERIES_PATTERNS = [
         re.compile(r"\b(thinkpad)\s+([a-z]?\d{2,4}[a-z]{0,3})\b", re.IGNORECASE),
         re.compile(r"\b(legion)\s+(pro\s+\d+|slim\s+\d+|\d+)\b", re.IGNORECASE),
@@ -116,11 +105,10 @@ def guess_model(title: str) -> Optional[str]:
             out = " ".join(parts)
             out = re.sub(r"\s+", " ", out).strip()
             return out or None
-        
+
     # 2.1) Lenovo ThinkBook: "ThinkBook 16 G8 IRL"
     m = re.search(r"\bThinkBook\s+(\d{2})\s+G(\d)\s+([A-Z0-9]{2,6})\b", t, re.IGNORECASE)
     if m:
-        # păstrăm formatul frumos
         return f"ThinkBook {m.group(1)} G{m.group(2)} {m.group(3).upper()}"
 
     # 2.2) Lenovo LOQ: "LOQ 15IAX9" / "LOQ Essential 15IRX11"
@@ -132,29 +120,21 @@ def guess_model(title: str) -> Optional[str]:
             return f"LOQ Essential {code}"
         return f"LOQ {code}"
 
-    # 2.3) Lenovo V15: "V15 G4 IRU" / "V15 G4 AMN"
-    m = re.search(r"\bV(\d{2})\s+G(\d)\s+([A-Z]{2,4})\b", t, re.IGNORECASE)
+    # 2.3) Lenovo V15: "V15 G4 IRU" / "V15 G4 AMN" (acceptă și V15 lipit)
+    m = re.search(r"\bV\s?(\d{2})\s+G(\d)\s+([A-Z]{2,4})\b", t, re.IGNORECASE)
     if m:
         return f"V{m.group(1)} G{m.group(2)} {m.group(3).upper()}"
 
-    # 2.4) HP 17-cn3004nq (coduri hp de tip xx-yy1234zz)
-    m = re.search(r"\b(\d{2}-[a-z]{2}\d{4}[a-z0-9]{0,3})\b", t, re.IGNORECASE)
+    # 2.4) HP 17-cn3004nq (acceptă și forme cu spații / fără cratimă)
+    # ex: "17-cn3004nq", "17 cn3004nq", "17cn3004nq" -> normalizează la "17-cn3004nq"
+    m = re.search(r"\b(\d{2})\s*[- ]?\s*([a-z]{2})\s*(\d{3,4})([a-z0-9]{0,3})\b", t, re.IGNORECASE)
     if m:
-        return m.group(1).lower()
-    
+        return f"{m.group(1)}-{m.group(2).lower()}{m.group(3)}{(m.group(4) or '').lower()}"
+
     # 2.5) Gigabyte A16 3VH / A16 CTH
     m = re.search(r"\bA(\d{2})\s+([A-Z0-9]{3})\b", t, re.IGNORECASE)
     if m:
         return f"A{m.group(1)} {m.group(2).upper()}"
-    
-    # HP/alte branduri: coduri gen 17-cn3004nq (cu cratimă)
-    m = re.search(r"\b(\d{2}-[a-z]{2}\d{4}[a-z0-9]{0,3})\b", t, re.IGNORECASE)
-    if m:
-        return m.group(1).lower()
-    
-    m = re.search(r"\bV(\d{2})\s+G(\d)\s+([A-Z]{2,4})\b", t, re.IGNORECASE)
-    if m:
-        return f"V{m.group(1)} G{m.group(2)} {m.group(3).upper()}"
 
     # 3) Fallback: caută coduri alfanumerice “de model” (F1605ZA, ANV15-52, 3750ZG etc),
     # dar evită CPU/GPU/RAM/SSD.
@@ -176,13 +156,11 @@ def guess_model(title: str) -> Optional[str]:
             continue
         if BAD_CODE_RX.match(code):
             continue
-        # evită să întoarcă ceva absurd de scurt
         if len(code) < 4:
             continue
         candidates.append(code)
 
     if candidates:
-        # alege cel mai “specific” (de obicei cel mai lung cod)
         candidates.sort(key=len, reverse=True)
         return candidates[0]
 

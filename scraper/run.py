@@ -20,7 +20,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--category", default="laptopuri", help="Internal category name")
     parser.add_argument("--pages", type=int, default=1, help="Number of listing pages")
     parser.add_argument("--max-products", type=int, default=None, help="Safety limit")
-    parser.add_argument("--db", default=None, help="Custom SQLite path")
+    parser.add_argument("--db", default=str(os.path.join(BASE_DIR, "data_out", "products.db")), help="SQLite path")
+    parser.add_argument("--log-level", default="INFO", choices=["DEBUG","INFO","WARNING","ERROR"])
     return parser
 
 def main():
@@ -28,7 +29,7 @@ def main():
     args = parser.parse_args()
     # Logging (salvează în scraper/logs/scraper.log)
     log_dir = os.path.join(BASE_DIR, "logs")
-    setup_logging(log_dir=log_dir)
+    setup_logging(log_dir=log_dir, level_console=getattr(logging, args.log_level))
     logger = logging.getLogger("scraper")
     if args.pages < 1:
         raise ValueError("--pages must be >= 1")
@@ -93,6 +94,11 @@ def main():
     except Exception as e:
         logger.exception("Eroare critică la rulare: %s: %s", type(e).__name__, e)
         sys.exit(1)
+
+    finally:
+        close = getattr(http, "close", None)
+        if callable(close):
+            close()
 
 if __name__ == "__main__":
     main()

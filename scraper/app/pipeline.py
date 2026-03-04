@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import uuid
 import time
 import logging
@@ -14,11 +13,14 @@ from app.storage.sqlite import SqliteStore
 from app.sites.base import SiteScraper
 from datetime import datetime, timezone
 from app.storage.csv_writer import write_products_csv
+from app.filters import explain_publi24_laptop_filter
 
 logger = logging.getLogger("scraper.pipeline")
 
 DEBUG_DIR = Path(BASE_DIR) / "data_out" / "debug"
 DEBUG_DIR.mkdir(parents=True, exist_ok=True)
+FILTERED_DIR = Path(BASE_DIR) / "data_out" / "filtered"
+FILTERED_DIR.mkdir(parents=True, exist_ok=True)
 
 @dataclass
 class RunStats:
@@ -63,6 +65,9 @@ def run_scrape(
 
     logger.info("--- Starting Scrape Run [%s] for %s ---", run_id, site_name)
 
+    seen_detail: set[str] = set()
+    filtered_rows: list[tuple[str, str, str]] = []  # (reason, url, title)
+
     for li, listing_url in enumerate(listing_urls, start=1):
         try:
             listing_res = site.http.get(listing_url)
@@ -83,8 +88,6 @@ def run_scrape(
                 logger.info("[debug] Saved empty listing HTML to: %s", debug_path)
 
             logger.info("[%s] Page %s/%s: Found %s items", site_name, li, len(listing_urls), len(detail_urls))
-
-            seen_detail: set[str] = set()
 
             for durl in detail_urls:
                 if durl in seen_detail:
@@ -109,20 +112,24 @@ def run_scrape(
                     p = site.parse_detail_page(detail_res.text, url=durl, category=category)
                     stats.products_parsed_total += 1
 
-                    # Filtrare site-specific (implementată în scraper; default True)
+                    # Filtrare + motiv (în special pentru Publi24)
                     try:
-                        keep = site.filter_product(p)
+                        if site_name == "publi24" and category == "laptopuri":
+                            keep, reason = explain_publi24_laptop_filter(p.title or "", p.description_text or "", p.url)
+                        else:
+                            keep = site.filter_product(p)
+                            reason = ""
                     except Exception as e:
                         stats.errors += 1
                         logger.warning("Filter error for %s: %s: %s", p.url, type(e).__name__, e)
                         keep = False
+                        reason = f"filter_error:{type(e).__name__}"
 
                     if not keep:
-                        # IMPORTANT: trebuie să existe în RunStats (dacă nu, îl adăugăm la pasul următor)
                         stats.products_filtered += 1
+                        filtered_rows.append((reason or "filtered", p.url, (p.title or "")[:200]))
                         continue
 
-                    p.source = site_name
                     p.http_status = detail_res.status_code
                     p.response_time_ms = detail_res.elapsed_ms
                     p.scrape_run_id = run_id
@@ -141,7 +148,18 @@ def run_scrape(
         except Exception as e:
             stats.errors += 1
             logger.exception("!!! Critical Listing Error: %s: %s", type(e).__name__, e)
-        
+    
+    if filtered_rows:
+        out = FILTERED_DIR / f"{site_name}_{run_id}_filtered.csv"
+        with open(out, "w", encoding="utf-8") as f:
+            f.write("reason,url,title\n")
+            for reason, url, title in filtered_rows:
+                r = (reason or "").replace('"', '""')
+                u = (url or "").replace('"', '""')
+                t = (title or "").replace('"', '""')
+                f.write(f"\"{r}\",\"{u}\",\"{t}\"\n")
+        logger.info("[export] Wrote filtered CSV: %s", out)
+
     stats.duration_s = round(time.time() - start_time, 2)
     stats.finished_at = datetime.now(timezone.utc).isoformat()
     return products, stats

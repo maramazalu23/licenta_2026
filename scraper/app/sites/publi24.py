@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import logging
 
 from typing import Iterable, List, Optional, Tuple
 from datetime import datetime, timezone
@@ -88,7 +89,7 @@ class Publi24Scraper(SiteScraper):
 
         urls: set[str] = set()
 
-        for a in soup.select("a[href]"):
+        for a in soup.select("a[href*='/anunt/'][href$='.html']"):
             href = a.get("href")
             if not href:
                 continue
@@ -195,7 +196,7 @@ class Publi24Scraper(SiteScraper):
         desc = product.description_text or ""
         keep, reason = explain_publi24_laptop_filter(title, desc, product.url)
         if not keep:
-            logger = __import__("logging").getLogger("scraper.filter")
+            logger = logging.getLogger("scraper.filter")
             logger.debug("[filtered] %s | %s | %s", reason, product.url, title[:120])
         return keep
 
@@ -363,7 +364,8 @@ class Publi24Scraper(SiteScraper):
                     dp = it.get("datePosted") or it.get("datePublished")
                     if isinstance(dp, str) and dp:
                         try:
-                            return datetime.fromisoformat(dp.replace("Z", "+00:00")).astimezone(timezone.utc)
+                            dt = datetime.fromisoformat(dp.replace("Z", "+00:00")).astimezone(timezone.utc)
+                            return dt
                         except Exception:
                             pass
             except Exception:
@@ -375,21 +377,35 @@ class Publi24Scraper(SiteScraper):
         if m:
             a, b, y = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
 
-            # încercăm dd/mm, apoi mm/dd
-            dt = None
+            now = datetime.now(timezone.utc)
+
+            # două interpretări posibile
+            dt_ddmm = None
+            dt_mmdd = None
+
+            # dd/mm/yyyy  -> datetime(y, month=b, day=a)
             try:
-                dt = datetime(y, b, a, tzinfo=timezone.utc)  # dd/mm
+                dt_ddmm = datetime(y, b, a, tzinfo=timezone.utc)
             except ValueError:
-                dt = None
+                dt_ddmm = None
 
-            if dt is None:
-                try:
-                    dt = datetime(y, a, b, tzinfo=timezone.utc)  # mm/dd
-                except ValueError:
-                    dt = None
+            # mm/dd/yyyy  -> datetime(y, month=a, day=b)
+            try:
+                dt_mmdd = datetime(y, a, b, tzinfo=timezone.utc)
+            except ValueError:
+                dt_mmdd = None
 
-            if dt is not None:
-                return dt
+            candidates = [dt for dt in (dt_ddmm, dt_mmdd) if dt is not None]
+            if candidates:
+                # preferăm o dată care NU e în viitor (mai mult de 1 zi)
+                not_future = [dt for dt in candidates if dt <= now.replace(hour=23, minute=59, second=59) ]
+                if not_future:
+                    # dacă ambele sunt “în trecut”, o alegem pe cea mai recentă
+                    return max(not_future)
+
+                # dacă ambele ies în viitor (rar), luăm cea mai apropiată de "acum"
+                candidates.sort(key=lambda dt: abs((dt - now).total_seconds()))
+                return candidates[0]
 
         # 3) fallback vechi: dd.mm.yyyy
         m = DATE_RE.search(full.replace("\n", " "))

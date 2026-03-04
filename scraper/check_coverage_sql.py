@@ -21,14 +21,16 @@ DB_PATH = Path(__file__).resolve().parent / "data_out" / "products.db"
 
 QUERIES = {
     "coverage_by_source": """
-        SELECT source,
-               COUNT(*) as n,
-               SUM(CASE WHEN model_guess IS NOT NULL THEN 1 ELSE 0 END) as model_ok,
-               SUM(CASE WHEN location IS NOT NULL THEN 1 ELSE 0 END) as location_ok,
-               SUM(CASE WHEN posted_at IS NOT NULL THEN 1 ELSE 0 END) as posted_ok
+        SELECT
+        source,
+        COUNT(*) AS n,
+        SUM(CASE WHEN price_ron IS NOT NULL THEN 1 ELSE 0 END) AS price_ron_ok,
+        SUM(CASE WHEN title_std IS NOT NULL THEN 1 ELSE 0 END) AS title_std_ok,
+        SUM(CASE WHEN model_norm IS NOT NULL THEN 1 ELSE 0 END) AS model_norm_ok,
+        SUM(CASE WHEN location_clean IS NOT NULL AND TRIM(location_clean) <> '' THEN 1 ELSE 0 END) AS location_ok
         FROM products_clean
         GROUP BY source
-        ORDER BY n DESC;
+        ORDER BY source;
     """,
     "pcgarage_missing_price_value": """
         SELECT COUNT(*) as missing_price_value

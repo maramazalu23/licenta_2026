@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 
 def setup_logging(log_dir: str | Path = "logs", level_console: int = logging.INFO) -> logging.Logger:
@@ -17,16 +17,21 @@ def setup_logging(log_dir: str | Path = "logs", level_console: int = logging.INF
     log_dir.mkdir(parents=True, exist_ok=True)
 
     logger = logging.getLogger("scraper")
-    logger.setLevel(logging.DEBUG)  # păstrăm debug în fișier
+    logger.setLevel(logging.DEBUG)
 
-    # IMPORTANT: evităm handler-e duplicate dacă setup_logging e chemat de mai multe ori
+    # evită handler-e duplicate
     if logger.handlers:
         return logger
 
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-    # File handler (DEBUG)
-    fh = logging.FileHandler(log_dir / "scraper.log", encoding="utf-8")
+    # File handler (DEBUG) cu rotație
+    fh = RotatingFileHandler(
+        log_dir / "scraper.log",
+        maxBytes=2 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8",
+    )
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
 
@@ -38,6 +43,5 @@ def setup_logging(log_dir: str | Path = "logs", level_console: int = logging.INF
     logger.addHandler(fh)
     logger.addHandler(ch)
 
-    # Nu dubla logurile prin root logger
     logger.propagate = False
     return logger

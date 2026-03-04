@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import re
 
-from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Optional, Literal, Dict, Any
-
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime, timezone
 
@@ -84,3 +82,16 @@ class Product(BaseModel):
 
         d = d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         return d
+    
+    @field_validator("price_value")
+    @classmethod
+    def validate_price_value(cls, v: Any) -> float | None:
+        if v is None:
+            return None
+        try:
+            fv = float(v)
+        except Exception:
+            return None
+        if fv < 0:
+            return None
+        return fv

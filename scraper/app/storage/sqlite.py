@@ -24,11 +24,10 @@ CREATE TABLE IF NOT EXISTS products (
   price TEXT,
   price_value REAL,
   currency TEXT,
+  condition TEXT,
   availability TEXT,
   location TEXT,
   posted_at TEXT,
-  condition TEXT,
-
   description_text TEXT,
   description_html TEXT,
 
@@ -94,10 +93,9 @@ CREATE INDEX IF NOT EXISTS idx_products_scraped_at ON products(scraped_at);
 CREATE INDEX IF NOT EXISTS idx_products_source_category ON products(source, category);
 CREATE INDEX IF NOT EXISTS idx_products_brand_model ON products(brand_guess, model_guess);
 CREATE INDEX IF NOT EXISTS idx_products_posted_at ON products(posted_at);
+CREATE INDEX IF NOT EXISTS idx_products_price_value ON products(price_value);
+CREATE INDEX IF NOT EXISTS idx_products_model_guess ON products(model_guess);
 """
-import re
-
-_PRICE_RE = re.compile(r"(\d[\d\.\s]*)(?:,(\d{1,2}))?")
 
 def _parse_price_value(price) -> float | None:
     """
@@ -175,6 +173,9 @@ class SqliteStore:
             conn.execute(DDL_PRODUCTS)
             conn.execute(DDL_SCRAPE_RUNS)
             conn.executescript(DDL_PRICE_SNAPSHOTS)
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA foreign_keys=ON;")
 
             # 2) Migrations for older DBs (ADD COLUMN where missing)
             # NOTE: SQLite can't easily add NOT NULL constraints on existing tables,
@@ -287,7 +288,7 @@ class SqliteStore:
                     p.source,
                     p.category,
                     url_str,
-                    p.scraped_at.isoformat(),
+                    p.scraped_at.isoformat() if hasattr(p.scraped_at, "isoformat") else str(p.scraped_at),
                     p.scrape_run_id,
                     p.title,
                     price_str,
@@ -296,7 +297,7 @@ class SqliteStore:
                     condition,
                     p.availability,
                     p.location,
-                    p.posted_at.isoformat() if p.posted_at else None,
+                    (p.posted_at.isoformat() if hasattr(p.posted_at, "isoformat") else str(p.posted_at)) if p.posted_at else None,
                     p.description_text,
                     p.description_html,
                     p.brand_guess,
@@ -402,10 +403,6 @@ class SqliteStore:
         return upserted, inserted, updated
     
     def insert_scrape_run(self, stats) -> None:
-        """
-        Salvează un rezumat al unei rulări în tabela scrape_runs.
-        stats este RunStats din pipeline.py
-        """
         with self._connect() as conn:
             conn.execute(
                 """
@@ -422,7 +419,7 @@ class SqliteStore:
                     stats.scrape_run_id,
                     stats.site_name,
                     stats.category,
-                    getattr(stats, "started_at", None) or "",   # completăm imediat mai jos în pipeline
+                    getattr(stats, "started_at", None) or "",
                     getattr(stats, "finished_at", None) or "",
                     float(stats.duration_s),
                     int(stats.pages_requested),
@@ -436,7 +433,7 @@ class SqliteStore:
                     int(stats.errors),
                 ),
             )
-        conn.commit()
+            conn.commit()
 
     def count_products(self) -> int:
         with self._connect() as conn:

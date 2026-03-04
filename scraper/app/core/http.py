@@ -63,10 +63,9 @@ class HttpClient:
         ]
 
         self.session.headers.update({
-            "User-Agent": HTTP.user_agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept-Encoding": "gzip, deflate",
+            "Accept-Encoding": "gzip",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
             "DNT": "1",
@@ -143,12 +142,17 @@ class HttpClient:
 
     def get(self, url: str, params: Optional[Dict[str, Any]] = None) -> FetchResult:
         last_exc = None
-        for attempt in range(1, HTTP.max_retries + 1):
+        
+        parts0 = urlsplit(url)
+        domain0 = self._normalize_domain(parts0.netloc)
+        policy0 = self._get_policy(domain0)
+        max_retries = int(policy0.get("max_retries", HTTP.max_retries))
+
+        for attempt in range(1, max_retries + 1):
             start = time.time()
             try:
                 parts = urlsplit(url)
                 domain = self._normalize_domain(parts.netloc)
-
                 policy = self._get_policy(domain)
                 timeout_s = policy.get("timeout_s", HTTP.timeout_s)
 
@@ -216,7 +220,7 @@ class HttpClient:
                 logger.warning("Eroare rețea la %s: %s. Retry în %ss...", url, e, backoff)
                 time.sleep(backoff)
 
-        raise RuntimeError(f"GET failed after {HTTP.max_retries} retries for {url}: {last_exc}")
+        raise RuntimeError(f"GET failed after {max_retries} retries for {url}: {last_exc}")
     
     def _ensure_playwright(self):
         if sync_playwright is None:

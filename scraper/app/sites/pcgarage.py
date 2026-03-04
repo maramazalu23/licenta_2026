@@ -10,6 +10,9 @@ from app.core.http import HttpClient
 from app.core.utils import clean_text, to_absolute_url, guess_brand, guess_mpn, guess_model
 from app.models import Product
 from app.sites.base import SiteScraper
+from datetime import datetime, timezone
+from urllib.parse import urljoin, urlparse
+
 
 class PcGarageScraper(SiteScraper):
     BASE_URL = "https://www.pcgarage.ro"
@@ -40,25 +43,32 @@ class PcGarageScraper(SiteScraper):
         urls: set[str] = set()
 
         for a in soup.select(".product_box_name a[href]"):
-            href = a.get("href")
+            href = a.get("href") or ""
             if not href:
                 continue
 
-            # normalize
-            if href.startswith("http"):
-                abs_url = href
-            else:
-                abs_url = to_absolute_url(self.BASE_URL, href)
-
+            # absolut + normalizare
+            abs_url = href if href.startswith("http") else to_absolute_url(self.BASE_URL, href)
             if not abs_url:
                 continue
 
-            # filtrează doar produse
-            path = abs_url[len(self.BASE_URL):] if abs_url.startswith(self.BASE_URL) else ""
-            if path and not self.DETAIL_HREF_RE.search(path):
+            p = urlparse(abs_url)
+
+            # acceptă strict doar domeniul pcgarage
+            if p.netloc and p.netloc != "www.pcgarage.ro":
                 continue
 
-            urls.add(abs_url.split("#", 1)[0])
+            # filtrează strict doar pagini de produs laptop
+            path = p.path or ""
+            if not self.DETAIL_HREF_RE.search(path):
+                continue
+
+            # scoate query + fragment și normalizează trailing slash
+            cleaned = urljoin(self.BASE_URL, path)
+            if not cleaned.endswith("/"):
+                cleaned += "/"
+
+            urls.add(cleaned)
 
         return sorted(urls)
 
@@ -71,8 +81,8 @@ class PcGarageScraper(SiteScraper):
         availability = self._extract_availability(soup)
         desc_text, desc_html = self._extract_description(soup)
         specs_raw = self._extract_specs(soup)
-
         brand = guess_brand(title)
+        posted_at = datetime.now(timezone.utc)
 
         mpn = None
         if specs_raw:
@@ -88,6 +98,8 @@ class PcGarageScraper(SiteScraper):
             price=price,
             currency=currency or "RON",
             availability=availability,
+            condition="nou",
+            posted_at=posted_at,
             description_text=desc_text,
             description_html=desc_html,
             model_guess=model_guess,
