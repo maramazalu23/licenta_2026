@@ -42,6 +42,7 @@ licenta_2026/
 │   │   ├── exports/           # exported datasets
 │   │   ├── filtered/          # rejected listings (with reasons)
 │   │   ├── debug/             # HTML debug dumps
+│   │   ├── browser_profile/   # Playwright browser profile
 │   │   ├── browser_state/     # Playwright browser state
 │   │   └── products.db        # SQLite database
 │   │
@@ -49,9 +50,12 @@ licenta_2026/
 │   ├── scripts/               # analysis / dataset scripts
 │   ├── tests/                 # DB and data validation checks
 │   │
+│   ├── check_coverage_sql.py
+│   ├── check_db.py
+│   ├── vacuum_db.py
+│   ├── requirements.txt
 │   └── run.py                 # main entry point
 │
-├── requirements.txt
 └── README.md
 ```
 
