@@ -66,17 +66,36 @@ MODEL_STOP = {
 }
 
 NON_LAPTOP_KEYWORDS = [
-    "baterie", "battery",
-    "display", "ecran",
-    "unitate optica", "unitate optică", "dvd", "cd r", "cd-r", "rw",
-    "incarcator", "încărcător", "alimentator", "adaptor", "adapter",
-    "tastatura", "mouse", "trackpad",
-    "carcasa", "carcasă", "balama", "hinge",
+    "docking station", "statie laptop", "stație laptop",
+    "chromebox", "mini pc", "desktop", "tower", "unitate pc",
+    "unitate optica", "unitate optică",
+    "baterie laptop", "battery laptop",
+    "incarcator laptop", "încărcător laptop", "alimentator laptop",
     "placa de baza", "placă de bază", "motherboard",
-    "tower", "desktop", "unitate pc",
+    "trackpad", "touchpad",
+    "balama", "hinge",
+    "dezmembrez", "pentru piese", "pt piese",
 ]
 
 PCG_MODEL_RE = re.compile(r"/notebook-laptop/[^/]+/(?P<slug>[^/]+)/?$", re.I)
+
+def preprocess_model_text(s: str) -> str:
+    s = (s or "").strip().lower()
+    fixes = {
+        "ellite book": "elitebook",
+        "elite book": "elitebook",
+        "pro book": "probook",
+        "think pad": "thinkpad",
+        "mac book": "macbook",
+        "fx 505": "fx505",
+        "fx 506": "fx506",
+        "fx 507": "fx507",
+        "fx 508": "fx508",
+    }
+    for bad, good in fixes.items():
+        s = s.replace(bad, good)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
 def guess_model_from_pcgarage_url(url: str) -> str | None:
     if not url:
@@ -112,138 +131,167 @@ def norm_title(s: str) -> str:
     return s
 
 
-def guess_model_norm(title: str) -> str | None:
-    t = (title or "").replace("™", " ").replace("®", " ")
+def guess_model_norm(text: str) -> str | None:
+    t = preprocess_model_text(text).replace("™", " ").replace("®", " ")
 
-    # MacBook Retina 12
+    # ---------- Apple ----------
     m = re.search(r"\bmacbook\s+retina\s+(1[0-6])\b", t, re.I)
     if m:
         return f"MacBook {m.group(1)}"
 
-    # MacBook Air/Pro 13/14/15/16 (nu dublăm "MacBook")
-    m = re.search(r"\bmacbook\s+(air|pro)\b.*?\b(1[3-6])\b", t, re.I)
+    m = re.search(r"\bmacbook\s+(air|pro)\b(?:.*?\b(1[3-6])\b)?", t, re.I)
     if m:
         kind = m.group(1).title()
         size = m.group(2)
-        return f"MacBook {kind} {size}"
-    
-    # HP 15s / 15 / 250 G8 etc.
-    m = re.search(r"\bhp\s+((?:15s|15)\b(?:[- ]?[a-z]{1,3}\d{2,4})?)", t, re.I)
+        return f"MacBook {kind} {size}" if size else f"MacBook {kind}"
+
+    # ---------- Lenovo / coduri care încep cu cifre ----------
+    m = re.search(r"\b(\d{2}[a-z]{2,5}\d{1,3}[a-z]?)\b", t, re.I)   # 16imh9, 15irx11, 16iax10h
+    if m:
+        return m.group(1).upper()
+
+    m = re.search(r"\b(thinkpad\s+[a-z]?\d{3,4})\b", t, re.I)       # ThinkPad T550, X280
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(thinkbook\s+\d{2}\s+g\d+\s+[a-z]{2,4})\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(ideapad\s+\d{3,4}\s*[a-z0-9-]*)\b", t, re.I)  # Ideapad 700 15ISK / 100 15IBD
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(110-17acl)\b", t, re.I)
+    if m:
+        return m.group(1).upper()
+
+    m = re.search(r"\b(legion\s+pro\s+\d+)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(yoga\s+pro\s+\d+)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b([y]\d{3,4})\b", t, re.I)                      # Y520, Y540
+    if m:
+        return m.group(1).upper()
+
+    # ---------- HP ----------
+    m = re.search(r"\b(elitebook\s+\d{3}\s*g\d)\b", t, re.I)         # EliteBook 840 G5
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(probook\s+x360\s+\d{3}\s*g\d)\b", t, re.I)    # ProBook x360 435 G8
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(probook\s+\d{3}\s*g\d)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(pavilion\s+dv\d)\b", t, re.I)                 # Pavilion DV6
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(hp\s+15s[a-z0-9-]*)\b", t, re.I)
     if m:
         return m.group(1).upper().replace(" ", "")
 
-    # 0) modele care încep cu cifre (IMPORTANT pt: 16IMH9, 15IRX11, 16IAX10H)
-    m = re.search(r"\b(\d{2}[A-Z]{2,5}\d{1,3}[A-Z]?)\b", t, re.I)
+    m = re.search(r"\b(hp\s+(?:15|17|14|550|g7))\b", t, re.I)
+    if m:
+        return m.group(1).upper()
+    m = re.search(r"\b(elitebook\s+folio\s+\d{3}\s*g\d)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(pavilion\s+\d{2}-[a-z0-9-]+)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(14s-[a-z0-9-]+)\b", t, re.I)
     if m:
         return m.group(1).upper()
 
-    low = t.lower()
+    # ---------- Dell ----------
+    m = re.search(r"\b(xps\s+\d{1,2}\s+\d{4})\b", t, re.I)           # XPS 15 9560
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
 
-    # IGNORĂ Quadro P4000 etc. (GPU), nu model laptop
-    # (ThinkPad P51 e P + 2 cifre, nu intră aici)
-    if ("nvidia" in low or "quadro" in low) and re.search(r"\bp\d{4}\b", t, re.I):
-        # nu returnăm P4000 ca model
-        pass
-    # Dell 7720 / 5530 etc. (4 cifre lângă Dell)
-    m = re.search(r"\bdell\s+(\d{4})\b", t, re.I)
+    m = re.search(r"\b(xps\s+\d{1,2})\b", t, re.I)                   # XPS 15 / XPS 17
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(inspiron\s+\d{4})\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(latitude\s+\d{4})\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(vostro\s+\d{4,6})\b", t, re.I)                # Vostro 153530
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\bdell\s+(\d{4})\b", t, re.I)                    # Dell 3558 / E5520 separat mai jos
     if m:
         return m.group(1)
 
-    # 1) modele "cod" clasice (F1605ZA, ANV15-52, T480, P51 etc.)
-    m = re.search(r"\b([A-Z]{1,4}\d{2,5}[A-Z]{0,3}(?:-\d{2})?)\b", t)
-    if m:
-        cand = m.group(1).strip()
-        if cand.lower() not in MODEL_STOP and len(cand) >= 3:
-            return cand
-
-    # 2) HP dv4-4141us (și similar)
-    m = re.search(r"\b(dv\d-\d{4}[a-z]{0,3})\b", t, re.I)
+    m = re.search(r"\b(e\d{4})\b", t, re.I)                          # E5520
     if m:
         return m.group(1).upper()
 
-    # 3) “ThinkBook 16 G8 IRL” (îl păstrăm ca model family)
-    m = re.search(r"\b(thinkbook\s+\d{2}\s+g\d+\s+[a-z]{2,4})\b", t, re.I)
-    if m:
-        return re.sub(r"\s+", " ", m.group(1)).strip().title()
-
-    # 4) “Legion Pro 7” (fără cod) / “Yoga Pro 9”
-    m = re.search(r"\b(legion\s+pro\s+\d+|yoga\s+pro\s+\d+)\b", t, re.I)
-    if m:
-        return re.sub(r"\s+", " ", m.group(1)).strip().title()
-
-    # 5) “Pavilion 14”, “MacBook 12”, “Aspire One” (fallback-uri safe)
-    m = re.search(r"\b(pavilion\s+\d{2})\b", t, re.I)
-    if m:
-        return m.group(1).title()
-
-    m = re.search(r"\b(aspire\s+one)\b", t, re.I)
-    if m:
-        return "Aspire One"
-        # HP 15s / 15 / 250 / 255 etc. (serii scurte)
-    m = re.search(r"\b(hp)\s+(15s|14s|15|17)\b", t, re.I)
-    if m:
-        return f"HP {m.group(2).upper()}"
-
-    # Acer Aspire 3/5/7 + cod dacă există
-    m = re.search(r"\b(aspire)\s+(3|5|7)\b", t, re.I)
-    if m:
-        return f"Aspire {m.group(2)}"
-
-    # Samsung Book 4 / Book 3 etc.
-    m = re.search(r"\b(samsung)\s+(book)\s+(\d)\b", t, re.I)
-    if m:
-        return f"Book {m.group(3)}"
-
-    # Pavilion g7 / g6 etc.
-    m = re.search(r"\b(pavilion)\s+(g\d)\b", t, re.I)
-    if m:
-        return f"Pavilion {m.group(2).upper()}"
-    
-    # Lenovo Y520 / Y540 etc.
-    m = re.search(r"\b([y]\d{3,4})\b", t, re.I)
+    # ---------- ASUS ----------
+    m = re.search(r"\b(x\d{3,4}[a-z]{0,3}(?:-[a-z0-9]+)?)\b", t, re.I)   # X540SA-XX004D / X552C
     if m:
         return m.group(1).upper()
 
-    # HP EliteBook 850 G4 / 840 G5 etc.
-    m = re.search(r"\b(elitebook)\s+(\d{3})\s+(g\d)\b", t, re.I)
+    m = re.search(r"\b(fx\d{3,4}[a-z]{0,3})\b", t, re.I)                 # FX505 / FX506 etc
     if m:
-        return f"EliteBook {m.group(2)} {m.group(3).upper()}"
+        return m.group(1).upper()
 
-    # Dell "i7 4510U" -> nu e model, dar prindem seria dacă există (ex: Inspiron 15 3000 etc.)
-    # Dacă nu există, mai bine lăsăm NULL (ca să nu inventăm model)
-    m = re.search(r"\b(inspiron|latitude|precision|vostro|xps)\s+(\d{3,4})\b", t, re.I)
+    m = re.search(r"\b(tuf\s+fx\d{3,4}[a-z]{0,3})\b", t, re.I)
     if m:
-        return f"{m.group(1).title()} {m.group(2)}"
+        return re.sub(r"\s+", " ", m.group(1)).upper()
 
-    # Zenbook 13 / Zenbook 14 (când nu există UX/UM/număr)
-    m = re.search(r"\b(zenbook)\s+(\d{2})\b", t, re.I)
+    m = re.search(r"\b(zenbook\s+\d{2})\b", t, re.I)
     if m:
-        return f"Zenbook {m.group(2)}"
-
-    # HP Chromebook (generic -> îl punem ca familie)
-    m = re.search(r"\b(chromebook)\b", t, re.I)
-    if m:
-        return "Chromebook"
-
-    m = re.search(r"\b(hp)\s+chrome\b", t, re.I)
-    if m:
-        return "Chromebook"
-    
-    # Acer Aspire 3750ZG / 5750G etc.
-    m = re.search(r"\b(aspire)\s+([0-9]{3,4}[a-z]{0,3})\b", t, re.I)
-    if m:
-        return f"Aspire {m.group(2).upper()}"
-    
+        return re.sub(r"\s+", " ", m.group(1)).title()
     m = re.search(r"\b(zenbook)\b", t, re.I)
     if m:
         return "Zenbook"
-    
-    m = re.search(r"\b(ideapad)\s+(slim)\s+(\d{1,2})\b", t, re.I)
+
+    # ---------- Acer ----------
+    m = re.search(r"\b(aspire\s+[a-z]?\d(?:-\d{3,4}[a-z]{0,3}|[a-z0-9]{3,6}))\b", t, re.I)  # Aspire V / E1-522 / 5935G
     if m:
-        return f"IdeaPad Slim {m.group(3)}"
+        return re.sub(r"\s+", " ", m.group(1)).title()
+
+    m = re.search(r"\b(extensa\s+\d{1,2})\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
+    m = re.search(r"\b(e1-\d{3})\b", t, re.I)
+    if m:
+        return m.group(1).upper()
+
+    m = re.search(r"\b(aspire\s+v)\b", t, re.I)
+    if m:
+        return "Aspire V"
+
+    # ---------- Medion / altele ----------
+    m = re.search(r"\b(p\d{4})\b", t, re.I)                           # P6620
+    if m and "quadro" not in t and "nvidia" not in t:
+        return m.group(1).upper()
+
+    # ---------- fallback cod alfanumeric ----------
+    m = re.search(r"\b([a-z]{1,4}\d{2,5}[a-z]{0,4}(?:-\d{2,6}[a-z0-9]{0,4})?)\b", t, re.I)
+    if m:
+        cand = m.group(1).upper()
+        if cand.lower() not in MODEL_STOP and len(cand) >= 3:
+            return cand
 
     return None
-
 
 def norm_brand(s: str | None) -> str | None:
     if not s:
@@ -275,11 +323,21 @@ def extract(text: str, regex: re.Pattern) -> str | None:
 
 
 def _is_laptop(source: str, title: str, desc: str) -> int:
-    if (source or "").lower() == "pcgarage":
+    src = (source or "").lower()
+    if src == "pcgarage":
         return 1
+
     low = f"{title} {desc}".lower()
+
+    # semnale clare de non-laptop
     if any(k in low for k in NON_LAPTOP_KEYWORDS):
         return 0
+
+    # device-uri care nu sunt laptopuri
+    if any(k in low for k in ["iphone", "telefon", "tablet", "tableta", "tabletă", "mac studio", "surface pro"]):
+        return 0
+
+    # dacă a trecut de filtrul Publi24, îl tratăm ca laptop
     return 1
 
 
@@ -481,11 +539,17 @@ def main():
     col_title = pick("title", "title_clean", "name", "name_clean")
     col_desc = pick("description_text", "description", "description_clean", "desc", "desc_clean")
     col_brand = pick("brand_guess", "brand", "brand_clean")
+    col_model_guess = pick("model_guess")
     col_specs = pick("specs_raw", "specs", "specs_clean")
 
     col_cond_existing = pick("condition_norm")
 
-    needed = [c for c in [col_source, col_url, col_title, col_desc, col_brand, col_specs, col_cond_existing] if c is not None]
+    needed = [
+        c for c in [
+            col_source, col_url, col_title, col_desc,
+            col_brand, col_model_guess, col_specs, col_cond_existing
+        ] if c is not None
+    ]
     rows = cur.execute("SELECT rowid, " + ", ".join(needed) + " FROM products_clean").fetchall()
 
     updated = 0
@@ -495,6 +559,7 @@ def main():
         title = (r[col_title] if col_title else "") or ""
         desc = (r[col_desc] if col_desc else "") or ""
         raw_brand = (r[col_brand] if col_brand else None)
+        raw_model_guess = (r[col_model_guess] if col_model_guess else None)
         existing_cond = (r[col_cond_existing] if col_cond_existing else None)
 
         specs = None
@@ -519,10 +584,16 @@ def main():
         m_norm = None
         if is_laptop == 1:
             if source.lower() == "pcgarage":
-                m_norm = guess_model_from_pcgarage_url(url) or guess_model_norm(t_norm)
+                m_norm = (
+                    guess_model_from_pcgarage_url(url)
+                    or guess_model_norm(raw_model_guess or "")
+                    or guess_model_norm(t_norm)
+                )
             else:
-                m_norm = guess_model_norm(t_norm)
-
+                m_norm = (
+                    guess_model_norm(raw_model_guess or "")
+                    or guess_model_norm(t_norm)
+                )
         # Publi24 = marketplace second-hand -> default used if we can't infer from text/specs
         # 1) încearcă să deduci din text/specs
         cond = norm_condition(title, desc, specs)

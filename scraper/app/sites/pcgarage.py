@@ -82,7 +82,7 @@ class PcGarageScraper(SiteScraper):
         desc_text, desc_html = self._extract_description(soup)
         specs_raw = self._extract_specs(soup)
         brand = guess_brand(title)
-        posted_at = datetime.now(timezone.utc)
+        posted_at = None # PC Garage nu oferă "data publicării"; nu folosim timpul scrape-ului
 
         mpn = None
         if specs_raw:
