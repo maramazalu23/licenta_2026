@@ -50,8 +50,6 @@ licenta_2026/
 │   ├── scripts/               # analysis / dataset scripts
 │   ├── tests/                 # DB and data validation checks
 │   │
-│   ├── check_coverage_sql.py
-│   ├── check_db.py
 │   ├── vacuum_db.py
 │   ├── requirements.txt
 │   └── run.py                 # main entry point
