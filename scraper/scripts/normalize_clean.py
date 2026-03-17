@@ -2,6 +2,7 @@ import re
 import sqlite3
 import json
 from app.config.base import DB_PATH
+from app.cleaning.normalize import normalize_title, normalize_condition
 
 BRAND_ALIASES = {
     "hp": "HP",
@@ -79,6 +80,20 @@ NON_LAPTOP_KEYWORDS = [
 
 PCG_MODEL_RE = re.compile(r"/notebook-laptop/[^/]+/(?P<slug>[^/]+)/?$", re.I)
 
+def plausible_model_guess(s: str | None) -> str | None:
+    if not s:
+        return None
+    x = s.strip()
+    low = x.lower()
+    banned = {"perfect", "functional", "office", "business", "gaming"}
+    if low in banned:
+        return None
+    if len(x) < 4:
+        return None
+    if not re.search(r"[0-9]", x) and len(x.split()) == 1:
+        return None
+    return x
+
 def preprocess_model_text(s: str) -> str:
     s = (s or "").strip().lower()
     fixes = {
@@ -122,13 +137,6 @@ def guess_model_from_pcgarage_url(url: str) -> str | None:
                 return cand
 
     return None
-
-
-def norm_title(s: str) -> str:
-    s = re.sub(r"\s+", " ", (s or "").strip())
-    s = s.replace("™", "").replace("®", "")
-    s = re.sub(r"\s+([,.;:])", r"\1", s)
-    return s
 
 
 def guess_model_norm(text: str) -> str | None:
@@ -177,6 +185,9 @@ def guess_model_norm(text: str) -> str | None:
     m = re.search(r"\b([y]\d{3,4})\b", t, re.I)                      # Y520, Y540
     if m:
         return m.group(1).upper()
+    m = re.search(r"\b(legion\s+\d+(?:\s+[a-z0-9]{4,6})?)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1)).title()
 
     # ---------- HP ----------
     m = re.search(r"\b(elitebook\s+\d{3}\s*g\d)\b", t, re.I)         # EliteBook 840 G5
@@ -213,6 +224,10 @@ def guess_model_norm(text: str) -> str | None:
     m = re.search(r"\b(14s-[a-z0-9-]+)\b", t, re.I)
     if m:
         return m.group(1).upper()
+    
+    m = re.search(r"\b(elitebook\s+\d{3,4}[a-z]?[-\s]g\d)\b", t, re.I)
+    if m:
+        return re.sub(r"\s+", " ", m.group(1).replace("-", " ")).title()
 
     # ---------- Dell ----------
     m = re.search(r"\b(xps\s+\d{1,2}\s+\d{4})\b", t, re.I)           # XPS 15 9560
@@ -305,18 +320,6 @@ def norm_brand(s: str | None) -> str | None:
     return s.strip()
 
 
-def norm_condition(title: str, desc: str, specs: dict | None) -> str | None:
-    text = f"{title} {desc}".lower()
-    if specs and isinstance(specs, dict):
-        st = (specs.get("stare") or "").strip().lower()
-        if st in COND_MAP:
-            return COND_MAP[st]
-    for k, v in sorted(COND_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):
-        if k in text:
-            return v
-    return None
-
-
 def extract(text: str, regex: re.Pattern) -> str | None:
     m = regex.search(text or "")
     return m.group(0).strip() if m else None
@@ -327,17 +330,22 @@ def _is_laptop(source: str, title: str, desc: str) -> int:
     if src == "pcgarage":
         return 1
 
-    low = f"{title} {desc}".lower()
+    t = (title or "").lower()
+    d = (desc or "").lower()
 
-    # semnale clare de non-laptop
-    if any(k in low for k in NON_LAPTOP_KEYWORDS):
+    # 1) în titlu: semnale clare de non-laptop
+    if any(k in t for k in NON_LAPTOP_KEYWORDS):
         return 0
 
-    # device-uri care nu sunt laptopuri
-    if any(k in low for k in ["iphone", "telefon", "tablet", "tableta", "tabletă", "mac studio", "surface pro"]):
+    # 2) device-uri clar non-laptop (în titlu sau descriere)
+    explicit_non_laptop = ["iphone", "telefon", "tablet", "tableta", "tabletă", "mac studio", "surface pro"]
+    if any(k in t for k in explicit_non_laptop):
+        return 0
+    if any(k in d for k in ["mac studio", "surface pro", "chromebox", "mini pc"]):
         return 0
 
-    # dacă a trecut de filtrul Publi24, îl tratăm ca laptop
+    # 3) pentru Publi24, dacă a trecut filtrul inițial, îl tratăm ca laptop;
+    # nu mai penalizăm descrierea completă pentru cuvinte precum "încărcător" / "baterie"
     return 1
 
 
@@ -526,50 +534,41 @@ def main():
 
     conn.commit()
 
-    cols = [r["name"] for r in cur.execute("PRAGMA table_info(products_clean)").fetchall()]
-
-    def pick(*names):
-        for n in names:
-            if n in cols:
-                return n
-        return None
-
-    col_source = pick("source")
-    col_url = pick("url")
-    col_title = pick("title", "title_clean", "name", "name_clean")
-    col_desc = pick("description_text", "description", "description_clean", "desc", "desc_clean")
-    col_brand = pick("brand_guess", "brand", "brand_clean")
-    col_model_guess = pick("model_guess")
-    col_specs = pick("specs_raw", "specs", "specs_clean")
-
-    col_cond_existing = pick("condition_norm")
-
-    needed = [
-        c for c in [
-            col_source, col_url, col_title, col_desc,
-            col_brand, col_model_guess, col_specs, col_cond_existing
-        ] if c is not None
-    ]
-    rows = cur.execute("SELECT rowid, " + ", ".join(needed) + " FROM products_clean").fetchall()
+    rows = cur.execute("""
+        SELECT
+            pc.rowid,
+            pc.source,
+            pc.url,
+            pc.title_clean,
+            pc.brand_guess,
+            pc.model_guess,
+            pc.condition_norm,
+            p.description_text,
+            p.specs_raw
+        FROM products_clean pc
+        LEFT JOIN products p
+            ON p.url = pc.url
+    """).fetchall()
 
     updated = 0
     for r in rows:
-        source = (r[col_source] if col_source else "") or ""
-        url = (r[col_url] if col_url else "") or ""
-        title = (r[col_title] if col_title else "") or ""
-        desc = (r[col_desc] if col_desc else "") or ""
-        raw_brand = (r[col_brand] if col_brand else None)
-        raw_model_guess = (r[col_model_guess] if col_model_guess else None)
-        existing_cond = (r[col_cond_existing] if col_cond_existing else None)
+        source = (r["source"] or "")
+        url = (r["url"] or "")
+        title = (r["title_clean"] or "")
+        desc = (r["description_text"] or "")
+        raw_brand = r["brand_guess"]
+        raw_model_guess = r["model_guess"]
+        existing_cond = r["condition_norm"]
 
+        raw_specs = r["specs_raw"]
         specs = None
-        if col_specs and r[col_specs]:
+        if raw_specs:
             try:
-                specs = json.loads(r[col_specs]) if isinstance(r[col_specs], str) else r[col_specs]
+                specs = json.loads(raw_specs) if isinstance(raw_specs, str) else raw_specs
             except Exception:
                 specs = None
 
-        t_norm = norm_title(title)
+        t_norm = normalize_title(title)
         is_laptop = _is_laptop(source, title, desc)
 
         b = norm_brand(raw_brand or "")
@@ -588,25 +587,28 @@ def main():
                     guess_model_from_pcgarage_url(url)
                     or guess_model_norm(raw_model_guess or "")
                     or guess_model_norm(t_norm)
+                    or plausible_model_guess(raw_model_guess)
                 )
             else:
                 m_norm = (
                     guess_model_norm(raw_model_guess or "")
                     or guess_model_norm(t_norm)
+                    or plausible_model_guess(raw_model_guess)
                 )
-        # Publi24 = marketplace second-hand -> default used if we can't infer from text/specs
-        # 1) încearcă să deduci din text/specs
-        cond = norm_condition(title, desc, specs)
 
-        # 2) pcgarage = retail -> new
+        # condiție
+        cond = normalize_condition(
+            f"{title} {desc}",
+            source=source,
+            specs_raw=specs,
+        )
+
         if source.lower() == "pcgarage":
             cond = "new"
 
-        # 3) dacă NU am dedus nimic, păstrează ce era deja în products_clean
         if not cond and existing_cond:
             cond = existing_cond
 
-        # 4) abia acum, fallback publi24 => used (doar dacă încă e gol)
         if not cond and source.lower() == "publi24":
             cond = "used"
 
