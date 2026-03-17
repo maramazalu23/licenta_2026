@@ -32,9 +32,12 @@ COND_MAP = {
 CPU_RE = re.compile(
     r"\b("
     r"i[3579]-?\d{4,5}[a-z]{0,2}"
+    r"|[Ii][3579]-?\d{3,5}[a-z]{0,2}"
+    r"|intel\s+(?:core\s+)?i[3579](?:-\d{3,5}[a-z]{0,2})?"
     r"|ryzen(?:™)?\s*[3579]\s*\d{4,5}[a-z]{0,2}"
     r"|core(?:™)?\s*(?:i[3579]|[3579])\s*\d{3,4}[a-z]{0,2}"
     r"|ultra(?:™)?\s*[579]\s*\d{3,4}[a-z]{0,2}"
+    r"|celeron(?:\s+[a-z0-9]+)?"
     r")\b",
     re.I,
 )
@@ -343,7 +346,12 @@ def _is_laptop(source: str, title: str, desc: str) -> int:
         return 0
     if any(k in d for k in ["mac studio", "surface pro", "chromebox", "mini pc"]):
         return 0
-
+    
+    # în _is_laptop(), înainte de return 1:
+    if source.lower() == "publi24":
+        # un laptop nu costă sub 100 RON
+        pass  # poți valida asta la nivel de products_clean după
+    
     # 3) pentru Publi24, dacă a trecut filtrul inițial, îl tratăm ca laptop;
     # nu mai penalizăm descrierea completă pentru cuvinte precum "încărcător" / "baterie"
     return 1

@@ -45,6 +45,8 @@ HARD_BAN_STRICT = [
     "unitate optica", "unitate optică",
     "interfata diagnoza", "interfață diagnoză", "diagnoza auto", "diagnoză auto",
     "tester auto", "op com",
+    "wireless card", "wirelles card",
+    "memorie usb", "stick usb",
 ]
 
 # 2) Soft component words:
