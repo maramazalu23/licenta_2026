@@ -26,7 +26,7 @@ LOC_SEP_RE = re.compile(r"\s*,\s*")
 def normalize_location(location: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Returnează (location_clean, county, city)
-    - dacă ai "Bucuresti, Sector 3" => county="Bucuresti", city="Sector 3"
+    - dacă ai "Bucuresti, Sector 3" => county="Sector 3", city="Bucuresti"
     - dacă ai "Iasi" => county=None, city="Iasi"
     """
     if not location:
