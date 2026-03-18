@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Acasă{% endblock %}
+
+{% block content %}
+<div class="p-4 p-md-5 mb-4 bg-light rounded-3">
+    <div class="container-fluid py-3">
+        <h1 class="display-6 fw-bold">Platformă de evaluare pentru produse IT</h1>
+        <p class="col-md-9 fs-5">
+            Prototip Flask pentru estimarea prețului corect, a deprecierii și a atractivității unui anunț,
+            folosind date reale colectate din piață.
+        </p>
+        <a class="btn btn-primary btn-lg" href="{{ url_for('main.evaluate') }}">Începe evaluarea</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Produse analizate</h6>
+                <div class="fs-3 fw-bold">{{ summary.total_products }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Second-hand</h6>
+                <div class="fs-3 fw-bold">{{ summary.used_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Produse noi</h6>
+                <div class="fs-3 fw-bold">{{ summary.new_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Branduri distincte</h6>
+                <div class="fs-3 fw-bold">{{ summary.distinct_brands }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

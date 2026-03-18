@@ -1,0 +1,39 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    border: 0;
+    border-radius: 1rem;
+}
+
+.border.rounded {
+    background: #fff;
+}
+
+.explore-filter-card {
+    top: 1rem;
+}
+
+.metric-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.9rem;
+}
+
+.section-box {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 0.9rem;
+    padding: 1rem;
+}
+
+.table td,
+.table th {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.8rem;
+    padding: 0.5em 0.7em;
+}
