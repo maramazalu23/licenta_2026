@@ -9,7 +9,7 @@
             <div class="card-body">
                 <h2 class="h4 mb-3">Formular evaluare</h2>
 
-                <form method="post">
+                <form method="post" action="{{ url_for('main.evaluate') }}">
                     <div class="mb-3">
                         <label class="form-label">Titlu anunț</label>
                         <input type="text" name="title" class="form-control" value="{{ form_data.title }}">
@@ -74,6 +74,14 @@
         <div class="card shadow-sm">
             <div class="card-body">
                 <h2 class="h4 mb-3">Rezultate</h2>
+
+                {% if saved_token %}
+                    <div class="alert alert-info">
+                        Evaluarea a fost salvată.
+                        <br>
+                        <strong>Token:</strong> {{ saved_token }}
+                    </div>
+                {% endif %}
 
                 {% if result %}
                     <div class="row g-3 mb-4">

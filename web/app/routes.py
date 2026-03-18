@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, redirect, url_for, abort
 
 from app.scoring.service import evaluate_listing
 from app.db_market import (
@@ -6,9 +6,28 @@ from app.db_market import (
     get_explore_filters,
     get_explore_products,
 )
+from app.services import save_evaluation, get_evaluation_by_token
 
 
 main_bp = Blueprint("main", __name__)
+
+
+def _to_int(value):
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_float(value):
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _deal_label_ro(label):
@@ -58,22 +77,16 @@ def _score_badge_class(score):
     return "bg-danger"
 
 
-def _to_int(value):
-    if value is None or value == "":
-        return None
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _to_float(value):
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
+def _decorate_result_for_ui(result):
+    result["ui"] = {
+        "deal_label_ro": _deal_label_ro(result["price_estimation"]["outputs"]["deal_rating_label"]),
+        "depreciation_label_ro": _depreciation_label_ro(result["depreciation"]["label"]),
+        "attractiveness_label_ro": _attractiveness_label_ro(result["attractiveness"]["label"]),
+        "deal_badge_class": _score_badge_class(result["price_estimation"]["outputs"]["deal_rating_score"]),
+        "depreciation_badge_class": _score_badge_class(result["depreciation"]["score"]),
+        "attractiveness_badge_class": _score_badge_class(result["attractiveness"]["score"]),
+    }
+    return result
 
 
 @main_bp.route("/")
@@ -85,7 +98,7 @@ def index():
 @main_bp.route("/evaluate", methods=["GET", "POST"])
 def evaluate():
     filters = get_explore_filters()
-    result = None
+
     form_data = {
         "title": "",
         "description": "",
@@ -117,21 +130,44 @@ def evaluate():
             price_asked=_to_float(form_data["price_asked"]),
         )
 
-    if result:
-        result["ui"] = {
-            "deal_label_ro": _deal_label_ro(result["price_estimation"]["outputs"]["deal_rating_label"]),
-            "depreciation_label_ro": _depreciation_label_ro(result["depreciation"]["label"]),
-            "attractiveness_label_ro": _attractiveness_label_ro(result["attractiveness"]["label"]),
-            "deal_badge_class": _score_badge_class(result["price_estimation"]["outputs"]["deal_rating_score"]),
-            "depreciation_badge_class": _score_badge_class(result["depreciation"]["score"]),
-            "attractiveness_badge_class": _score_badge_class(result["attractiveness"]["score"]),
-        }
+        result = _decorate_result_for_ui(result)
+
+        saved = save_evaluation(
+            input_payload=form_data,
+            result_payload=result,
+        )
+
+        return redirect(url_for("main.result_page", token=saved.token))
+
+    return render_template(
+        "evaluate.html",
+        filters=filters,
+        result=None,
+        form_data=form_data,
+        saved_token=None,
+        saved_created_at=None,
+    )
+
+
+@main_bp.route("/result/<token>")
+def result_page(token):
+    saved = get_evaluation_by_token(token)
+    if not saved:
+        abort(404)
+
+    result = saved["result"]
+    result = _decorate_result_for_ui(result)
+
+    form_input = saved["input"]
+    filters = get_explore_filters()
 
     return render_template(
         "evaluate.html",
         filters=filters,
         result=result,
-        form_data=form_data,
+        form_data=form_input,
+        saved_token=token,
+        saved_created_at=saved["created_at"],
     )
 
 
