@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Anunțuri salvate{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h1 class="h4 mb-3">Anunțuri salvate în platformă</h1>
+
+        {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Titlu</th>
+                            <th>Brand</th>
+                            <th>RAM</th>
+                            <th>Condiție</th>
+                            <th>Preț cerut</th>
+                            <th>Evaluare</th>
+                            <th>Descriere</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td>{{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}</td>
+                                <td>{{ row.title or "-" }}</td>
+                                <td>{{ row.brand or "-" }}</td>
+                                <td>{{ row.ram_gb or "-" }}</td>
+                                <td>
+                                    {% if row.condition == "used" %}
+                                        Second-hand
+                                    {% elif row.condition == "new" %}
+                                        Nou
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.price_asked|price }}</td>
+                                <td>
+                                    {% if row.evaluation_token %}
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
+                                            Vezi evaluarea
+                                        </a>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if row.description %}
+                                        {{ row.description[:80] }}{% if row.description|length > 80 %}...{% endif %}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">Nu există încă anunțuri publicate.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

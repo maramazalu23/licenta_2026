@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Istoric evaluări{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h1 class="h4 mb-3">Istoric evaluări salvate</h1>
+
+        {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Token</th>
+                            <th>Titlu</th>
+                            <th>Brand</th>
+                            <th>Familie</th>
+                            <th>Condiție</th>
+                            <th>Preț cerut</th>
+                            <th>Preț corect SH</th>
+                            <th>Scor ofertă</th>
+                            <th>Scor atractivitate</th>
+                            <th>Detalii</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td>{{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}</td>
+                                <td><code>{{ row.token }}</code></td>
+                                <td>{{ row.title or "-" }}</td>
+                                <td>{{ row.brand or "-" }}</td>
+                                <td>{{ row.model_family or "-" }}</td>
+                                <td>
+                                    {% if row.condition == "used" %}
+                                        Second-hand
+                                    {% elif row.condition == "new" %}
+                                        Nou
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>{{ row.price_asked|price }}</td>
+                                <td>{{ row.fair_price_used|price }}</td>
+                                <td>{{ row.deal_score if row.deal_score is not none else "N/A" }}</td>
+                                <td>{{ row.attractiveness_score if row.attractiveness_score is not none else "N/A" }}</td>
+                                <td>
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.token) }}">
+                                        Vezi
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">Nu există încă evaluări salvate.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

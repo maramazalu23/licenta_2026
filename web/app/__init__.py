@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, get_flashed_messages
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 
@@ -53,5 +53,9 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+
+    @app.context_processor
+    def inject_flash_messages():
+        return {"flashed_messages": get_flashed_messages(with_categories=True)}
 
     return app

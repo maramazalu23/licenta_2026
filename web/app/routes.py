@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, abort
+from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
 
 from app.scoring.service import evaluate_listing
 from app.db_market import (
@@ -6,7 +6,13 @@ from app.db_market import (
     get_explore_filters,
     get_explore_products,
 )
-from app.services import save_evaluation, get_evaluation_by_token
+from app.services import (
+    save_evaluation,
+    get_evaluation_by_token,
+    list_recent_evaluations,
+    create_listing_from_evaluation,
+    list_recent_listings,
+)
 
 
 main_bp = Blueprint("main", __name__)
@@ -95,6 +101,20 @@ def index():
     return render_template("index.html", summary=summary)
 
 
+@main_bp.route("/publish/<token>", methods=["POST"])
+def publish_listing(token):
+    listing, already_exists = create_listing_from_evaluation(token)
+    if not listing:
+        abort(404)
+
+    if already_exists:
+        flash("Anunțul a fost deja publicat în platformă.", "warning")
+    else:
+        flash("Anunțul a fost publicat cu succes în platformă.", "success")
+
+    return redirect(url_for("main.listings"))
+
+
 @main_bp.route("/evaluate", methods=["GET", "POST"])
 def evaluate():
     filters = get_explore_filters()
@@ -169,6 +189,18 @@ def result_page(token):
         saved_token=token,
         saved_created_at=saved["created_at"],
     )
+
+
+@main_bp.route("/history")
+def history():
+    rows = list_recent_evaluations(limit=30)
+    return render_template("history.html", rows=rows)
+
+
+@main_bp.route("/listings")
+def listings():
+    rows = list_recent_listings(limit=30)
+    return render_template("listings.html", rows=rows)
 
 
 @main_bp.route("/explore")
