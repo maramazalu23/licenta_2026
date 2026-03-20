@@ -19,7 +19,7 @@
                             <th>Familie</th>
                             <th>Condiție</th>
                             <th>Preț cerut</th>
-                            <th>Preț corect SH</th>
+                            <th>Preț recomandat</th>
                             <th>Scor ofertă</th>
                             <th>Scor atractivitate</th>
                             <th>Detalii</th>
@@ -43,7 +43,7 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ row.price_asked|price }}</td>
-                                <td>{{ row.fair_price_used|price }}</td>
+                                <td>{{ row.recommended_price|price }}</td>
                                 <td>{{ row.deal_score if row.deal_score is not none else "N/A" }}</td>
                                 <td>{{ row.attractiveness_score if row.attractiveness_score is not none else "N/A" }}</td>
                                 <td>

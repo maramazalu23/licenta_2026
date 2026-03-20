@@ -5,6 +5,11 @@ from app.scoring.depreciation import compute_depreciation_score
 from app.scoring.attractiveness import compute_attractiveness_score
 
 
+def _clean_condition(value: Optional[str]) -> str:
+    value = str(value).strip().lower() if value is not None else ""
+    return value if value in {"used", "new"} else "used"
+
+
 def evaluate_listing(
     title: Optional[str] = None,
     description: Optional[str] = None,
@@ -14,20 +19,32 @@ def evaluate_listing(
     condition: Optional[str] = None,
     price_asked: Optional[float] = None,
 ) -> Dict[str, Any]:
+    condition = _clean_condition(condition)
+
     price_result = estimate_price(
         brand=brand,
         ram_gb=ram_gb,
         model_family=model_family,
+        condition=condition,
         price_asked=price_asked,
     )
 
     market_reference = price_result.get("market_reference", {})
     outputs = price_result.get("outputs", {})
 
-    depreciation_result = compute_depreciation_score(
-        fair_price_used=outputs.get("fair_price_used"),
-        new_median=market_reference.get("new_median"),
-    )
+    if condition == "used":
+        depreciation_result = compute_depreciation_score(
+            fair_price_used=outputs.get("fair_price_used"),
+            new_median=market_reference.get("new_median"),
+        )
+    else:
+        depreciation_result = {
+            "score": None,
+            "retention_ratio": None,
+            "depreciation_pct": None,
+            "label": "not_applicable",
+            "explanation": "Scorul de depreciere se calculeaza doar pentru produse second-hand.",
+        }
 
     attractiveness_result = compute_attractiveness_score(
         title=title,

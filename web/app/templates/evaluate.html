@@ -90,15 +90,20 @@
                 {% endif %}
 
                 {% if result %}
+                    {% set selected_condition = result.price_estimation.outputs.selected_condition or form_data.condition or 'used' %}
+                    {% set fair_price_value = result.price_estimation.outputs.fair_price if result.price_estimation.outputs.fair_price is not none else result.price_estimation.outputs.fair_price_used %}
+                    {% set fair_price_label = 'Preț corect SH' if selected_condition == 'used' else 'Preț corect nou' %}
+
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
                             <div class="metric-card p-3 h-100">
-                                <div class="text-muted small">Preț corect SH</div>
+                                <div class="text-muted small">{{ fair_price_label }}</div>
                                 <div class="fs-4 fw-bold">
-                                    {{ result.price_estimation.outputs.fair_price_used|price }}
+                                    {{ fair_price_value|price }}
                                 </div>
                             </div>
                         </div>
+
                         <div class="col-md-4">
                             <div class="metric-card p-3 h-100">
                                 <div class="text-muted small">Scor depreciere</div>
@@ -112,11 +117,12 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="col-md-4">
                             <div class="metric-card p-3 h-100">
                                 <div class="text-muted small">Scor atractivitate</div>
                                 <div class="d-flex align-items-center gap-2">
-                                    <div class="fs-4 fw-bold">{{ result.attractiveness.score }}</div>
+                                    <div class="fs-4 fw-bold">{{ result.attractiveness.score if result.attractiveness.score is not none else "N/A" }}</div>
                                     <span class="badge {{ result.ui.attractiveness_badge_class }}">
                                         {{ result.ui.attractiveness_label_ro }}
                                     </span>
@@ -131,15 +137,42 @@
                             <strong>Etichetă ofertă:</strong>
                             <span class="badge {{ result.ui.deal_badge_class }}">{{ result.ui.deal_label_ro }}</span>
                         </p>
-                        <p class="mb-1"><strong>Scor ofertă:</strong> {{ result.price_estimation.outputs.deal_rating_score if result.price_estimation.outputs.deal_rating_score is not none else "N/A" }}</p>
-                        <p class="mb-1"><strong>Q1 / Mediană / Q3 SH:</strong>
-                            {{ result.price_estimation.market_reference.used_q1|price }},
-                            {{ result.price_estimation.market_reference.used_median|price }},
-                            {{ result.price_estimation.market_reference.used_q3|price }}
+
+                        <p class="mb-1">
+                            <strong>Scor ofertă:</strong>
+                            {{ result.price_estimation.outputs.deal_rating_score if result.price_estimation.outputs.deal_rating_score is not none else "N/A" }}
                         </p>
-                        <p class="mb-1"><strong>Mediană nou:</strong> {{ result.price_estimation.market_reference.new_median|price }}</p>
-                        <p class="mb-1"><strong>Nivel fallback:</strong> {{ result.price_estimation.segment.source_level }}</p>
-                        <p class="mb-0"><strong>Explicație:</strong> {{ result.price_estimation.explanations.deal }}</p>
+
+                        {% if selected_condition == 'used' %}
+                            <p class="mb-1">
+                                <strong>Q1 / Mediană / Q3 SH:</strong>
+                                {{ result.price_estimation.market_reference.used_q1|price }},
+                                {{ result.price_estimation.market_reference.used_median|price }},
+                                {{ result.price_estimation.market_reference.used_q3|price }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>Mediană nou:</strong>
+                                {{ result.price_estimation.market_reference.new_median|price }}
+                            </p>
+                        {% else %}
+                            <p class="mb-1">
+                                <strong>Mediană segment nou:</strong>
+                                {{ result.price_estimation.market_reference.new_median|price }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>Referință mediană SH:</strong>
+                                {{ result.price_estimation.market_reference.used_median|price }}
+                            </p>
+                        {% endif %}
+
+                        <p class="mb-1">
+                            <strong>Nivel fallback:</strong>
+                            {{ result.price_estimation.segment.source_level }}
+                        </p>
+                        <p class="mb-0">
+                            <strong>Explicație:</strong>
+                            {{ result.price_estimation.explanations.deal }}
+                        </p>
                     </div>
 
                     <div class="section-box mb-4">

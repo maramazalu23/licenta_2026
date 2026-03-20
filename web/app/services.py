@@ -33,6 +33,22 @@ def get_evaluation_by_token(token):
     }
 
 
+def _extract_recommended_price(result_data, condition):
+    outputs = result_data.get("price_estimation", {}).get("outputs", {})
+
+    fair_price = outputs.get("fair_price")
+    fair_price_used = outputs.get("fair_price_used")
+    fair_price_new = outputs.get("fair_price_new")
+
+    if fair_price is not None:
+        return fair_price
+
+    if condition == "new" and fair_price_new is not None:
+        return fair_price_new
+
+    return fair_price_used
+
+
 def list_recent_evaluations(limit=20):
     rows = (
         EvaluationResult.query
@@ -46,19 +62,18 @@ def list_recent_evaluations(limit=20):
         input_data = json.loads(row.input_json)
         result_data = json.loads(row.result_json)
 
+        condition = input_data.get("condition")
+        recommended_price = _extract_recommended_price(result_data, condition)
+
         items.append({
             "token": row.token,
             "created_at": row.created_at,
             "title": input_data.get("title"),
             "brand": input_data.get("brand"),
             "model_family": input_data.get("model_family"),
-            "condition": input_data.get("condition"),
+            "condition": condition,
             "price_asked": input_data.get("price_asked"),
-            "fair_price_used": (
-                result_data.get("price_estimation", {})
-                .get("outputs", {})
-                .get("fair_price_used")
-            ),
+            "recommended_price": recommended_price,
             "deal_label": (
                 result_data.get("price_estimation", {})
                 .get("outputs", {})
@@ -103,6 +118,7 @@ def create_listing_from_evaluation(token):
     db.session.commit()
     return listing, False
 
+
 def list_recent_listings(limit=30):
     rows = (
         Listing.query
@@ -113,6 +129,24 @@ def list_recent_listings(limit=30):
 
     items = []
     for row in rows:
+        recommended_price = None
+        deal_score = None
+
+        if row.evaluation_token:
+            saved = get_evaluation_by_token(row.evaluation_token)
+            if saved:
+                input_data = saved.get("input", {})
+                result_data = saved.get("result", {})
+                recommended_price = _extract_recommended_price(
+                    result_data,
+                    input_data.get("condition"),
+                )
+                deal_score = (
+                    result_data.get("price_estimation", {})
+                    .get("outputs", {})
+                    .get("deal_rating_score")
+                )
+
         items.append({
             "id": row.id,
             "title": row.title,
@@ -123,6 +157,8 @@ def list_recent_listings(limit=30):
             "description": row.description,
             "evaluation_token": row.evaluation_token,
             "created_at": row.created_at,
+            "recommended_price": recommended_price,
+            "deal_score": deal_score,
         })
 
     return items

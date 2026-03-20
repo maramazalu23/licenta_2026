@@ -36,6 +36,11 @@ def _to_float(value):
         return None
 
 
+def _clean_condition(value):
+    value = str(value).strip().lower() if value is not None else ""
+    return value if value in {"used", "new"} else "used"
+
+
 def _deal_label_ro(label):
     mapping = {
         "very_good": "Foarte avantajos",
@@ -57,6 +62,7 @@ def _depreciation_label_ro(label):
         "high_depreciation": "Depreciere ridicată",
         "extreme_depreciation": "Depreciere extremă",
         "unknown": "Necunoscut",
+        "not_applicable": "Nu se aplică",
     }
     return mapping.get(label, label or "Necunoscut")
 
@@ -83,14 +89,83 @@ def _score_badge_class(score):
     return "bg-danger"
 
 
+def _normalize_saved_result(result, form_input=None):
+    """
+    Compatibilitate pentru evaluari vechi salvate in DB.
+    Daca lipsesc noile chei (ex. outputs.fair_price), le completam din schema veche.
+    """
+    if not result:
+        return result
+
+    price_estimation = result.setdefault("price_estimation", {})
+    outputs = price_estimation.setdefault("outputs", {})
+    market_reference = price_estimation.setdefault("market_reference", {})
+    segment = price_estimation.setdefault("segment", {})
+    explanations = price_estimation.setdefault("explanations", {})
+    depreciation = result.setdefault("depreciation", {})
+    attractiveness = result.setdefault("attractiveness", {})
+
+    selected_condition = None
+    if isinstance(result.get("input"), dict):
+        selected_condition = result["input"].get("condition")
+    if not selected_condition and isinstance(form_input, dict):
+        selected_condition = form_input.get("condition")
+    selected_condition = _clean_condition(selected_condition)
+
+    outputs.setdefault("selected_condition", selected_condition)
+
+    fair_price_used = outputs.get("fair_price_used")
+    fair_price_new = outputs.get("fair_price_new")
+    fair_price = outputs.get("fair_price")
+
+    if fair_price is None:
+        outputs["fair_price"] = fair_price_new if selected_condition == "new" else fair_price_used
+
+    outputs.setdefault("fair_price_new", fair_price_new)
+    outputs.setdefault("fair_price_used", fair_price_used)
+
+    outputs.setdefault("deal_rating_label", "unknown")
+    outputs.setdefault("deal_rating_score", None)
+    outputs.setdefault("delta_vs_fair_price", None)
+
+    market_reference.setdefault("used_q1", None)
+    market_reference.setdefault("used_median", None)
+    market_reference.setdefault("used_q3", None)
+    market_reference.setdefault("new_median", None)
+
+    segment.setdefault("source_level", "no_match")
+    segment.setdefault("confidence", "very_low")
+    segment.setdefault("filters_used", {})
+    segment.setdefault("used_n", 0)
+    segment.setdefault("new_n", 0)
+
+    explanations.setdefault("pricing", "Evaluare încărcată din istoric.")
+    explanations.setdefault("deal", "Explicație indisponibilă pentru această evaluare salvată.")
+
+    depreciation.setdefault("score", None)
+    depreciation.setdefault("retention_ratio", None)
+    depreciation.setdefault("depreciation_pct", None)
+    depreciation.setdefault("label", "unknown")
+    depreciation.setdefault("explanation", "Nu există suficiente date pentru estimarea deprecierii.")
+
+    attractiveness.setdefault("score", None)
+    attractiveness.setdefault("label", "weak")
+    attractiveness.setdefault("explanation", "Nu există suficiente date pentru evaluarea atractivității.")
+    attractiveness.setdefault("recommendations", [])
+
+    return result
+
+
 def _decorate_result_for_ui(result):
+    result = _normalize_saved_result(result, form_input=result.get("input"))
+
     result["ui"] = {
-        "deal_label_ro": _deal_label_ro(result["price_estimation"]["outputs"]["deal_rating_label"]),
-        "depreciation_label_ro": _depreciation_label_ro(result["depreciation"]["label"]),
-        "attractiveness_label_ro": _attractiveness_label_ro(result["attractiveness"]["label"]),
-        "deal_badge_class": _score_badge_class(result["price_estimation"]["outputs"]["deal_rating_score"]),
-        "depreciation_badge_class": _score_badge_class(result["depreciation"]["score"]),
-        "attractiveness_badge_class": _score_badge_class(result["attractiveness"]["score"]),
+        "deal_label_ro": _deal_label_ro(result["price_estimation"]["outputs"].get("deal_rating_label")),
+        "depreciation_label_ro": _depreciation_label_ro(result["depreciation"].get("label")),
+        "attractiveness_label_ro": _attractiveness_label_ro(result["attractiveness"].get("label")),
+        "deal_badge_class": _score_badge_class(result["price_estimation"]["outputs"].get("deal_rating_score")),
+        "depreciation_badge_class": _score_badge_class(result["depreciation"].get("score")),
+        "attractiveness_badge_class": _score_badge_class(result["attractiveness"].get("score")),
     }
     return result
 
@@ -175,10 +250,11 @@ def result_page(token):
     if not saved:
         abort(404)
 
-    result = saved["result"]
+    form_input = saved.get("input") or {}
+    result = saved.get("result") or {}
+    result = _normalize_saved_result(result, form_input=form_input)
     result = _decorate_result_for_ui(result)
 
-    form_input = saved["input"]
     filters = get_explore_filters()
 
     return render_template(
