@@ -221,10 +221,11 @@ def index():
 
 
 @main_bp.route("/publish/<token>", methods=["POST"])
+@login_required
 def publish_listing(token):
     listing, already_exists = create_listing_from_evaluation(
         token,
-        user_id=current_user.id if current_user.is_authenticated else None,
+        user_id=current_user.id,
     )
     if not listing:
         abort(404)
@@ -288,8 +289,6 @@ def evaluate():
             condition=form_data["condition"] or None,
             price_asked=_to_float(form_data["price_asked"]),
         )
-
-        result = _decorate_result_for_ui(result)
 
         saved, created_new = save_evaluation(
             input_payload=form_data,
