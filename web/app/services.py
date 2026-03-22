@@ -5,18 +5,81 @@ from app import db
 from app.models import EvaluationResult, Listing
 
 
-def save_evaluation(input_payload, result_payload):
+def _normalize_text(value):
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().split())
+
+
+def _normalize_condition(value):
+    value = str(value).strip().lower() if value is not None else ""
+    return value if value in {"used", "new"} else ""
+
+
+def _normalize_price(value):
+    if value is None or value == "":
+        return ""
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return ""
+
+
+def _normalize_ram(value):
+    if value is None or value == "":
+        return ""
+    try:
+        return str(int(float(value)))
+    except (TypeError, ValueError):
+        return ""
+
+
+def _canonical_input_payload(input_payload):
+    return {
+        "title": _normalize_text(input_payload.get("title")),
+        "description": _normalize_text(input_payload.get("description")),
+        "brand": _normalize_text(input_payload.get("brand")),
+        "ram_gb": _normalize_ram(input_payload.get("ram_gb")),
+        "model_family": _normalize_text(input_payload.get("model_family")),
+        "condition": _normalize_condition(input_payload.get("condition")),
+        "price_asked": _normalize_price(input_payload.get("price_asked")),
+    }
+
+
+def _same_evaluation_input(left_payload, right_payload):
+    return _canonical_input_payload(left_payload) == _canonical_input_payload(right_payload)
+
+
+def save_evaluation(input_payload, result_payload, user_id=None):
+    normalized_input = _canonical_input_payload(input_payload)
+
+    existing_rows = (
+        EvaluationResult.query
+        .order_by(EvaluationResult.created_at.desc())
+        .all()
+    )
+
+    for existing in existing_rows:
+        try:
+            existing_input = json.loads(existing.input_json)
+        except Exception:
+            continue
+
+        if _same_evaluation_input(existing_input, normalized_input):
+            return existing, False
+
     token = uuid.uuid4().hex[:16]
 
     row = EvaluationResult(
         token=token,
-        input_json=json.dumps(input_payload, ensure_ascii=False),
+        input_json=json.dumps(normalized_input, ensure_ascii=False),
         result_json=json.dumps(result_payload, ensure_ascii=False),
+        user_id=user_id,
     )
     db.session.add(row)
     db.session.commit()
 
-    return row
+    return row, True
 
 
 def get_evaluation_by_token(token):
@@ -31,6 +94,12 @@ def get_evaluation_by_token(token):
         "input": json.loads(row.input_json),
         "result": json.loads(row.result_json),
     }
+
+
+def is_listing_published(token):
+    if not token:
+        return False
+    return Listing.query.filter_by(evaluation_token=token).first() is not None
 
 
 def _extract_recommended_price(result_data, condition):
@@ -93,7 +162,7 @@ def list_recent_evaluations(limit=20):
     return items
 
 
-def create_listing_from_evaluation(token):
+def create_listing_from_evaluation(token, user_id=None):
     saved = get_evaluation_by_token(token)
     if not saved:
         return None, False
@@ -112,6 +181,7 @@ def create_listing_from_evaluation(token):
         condition=input_data.get("condition"),
         description=input_data.get("description"),
         evaluation_token=token,
+        user_id=user_id,
     )
 
     db.session.add(listing)
@@ -180,3 +250,89 @@ def _safe_float(value):
         return float(value)
     except (TypeError, ValueError):
         return None
+    
+
+def list_user_evaluations(user_id, limit=20):
+    rows = (
+        EvaluationResult.query
+        .filter_by(user_id=user_id)
+        .order_by(EvaluationResult.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for row in rows:
+        input_data = json.loads(row.input_json)
+        result_data = json.loads(row.result_json)
+
+        condition = input_data.get("condition")
+        recommended_price = _extract_recommended_price(result_data, condition)
+
+        items.append({
+            "token": row.token,
+            "created_at": row.created_at,
+            "title": input_data.get("title"),
+            "brand": input_data.get("brand"),
+            "model_family": input_data.get("model_family"),
+            "condition": condition,
+            "price_asked": input_data.get("price_asked"),
+            "recommended_price": recommended_price,
+            "deal_score": (
+                result_data.get("price_estimation", {})
+                .get("outputs", {})
+                .get("deal_rating_score")
+            ),
+            "attractiveness_score": (
+                result_data.get("attractiveness", {})
+                .get("score")
+            ),
+        })
+
+    return items
+
+
+def list_user_listings(user_id, limit=20):
+    rows = (
+        Listing.query
+        .filter_by(user_id=user_id)
+        .order_by(Listing.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    items = []
+    for row in rows:
+        recommended_price = None
+        deal_score = None
+
+        if row.evaluation_token:
+            saved = get_evaluation_by_token(row.evaluation_token)
+            if saved:
+                input_data = saved.get("input", {})
+                result_data = saved.get("result", {})
+                recommended_price = _extract_recommended_price(
+                    result_data,
+                    input_data.get("condition"),
+                )
+                deal_score = (
+                    result_data.get("price_estimation", {})
+                    .get("outputs", {})
+                    .get("deal_rating_score")
+                )
+
+        items.append({
+            "id": row.id,
+            "title": row.title,
+            "brand": row.brand,
+            "ram_gb": row.ram_gb,
+            "price_asked": row.price_asked,
+            "condition": row.condition,
+            "description": row.description,
+            "evaluation_token": row.evaluation_token,
+            "created_at": row.created_at,
+            "recommended_price": recommended_price,
+            "deal_score": deal_score,
+        })
+
+    return items

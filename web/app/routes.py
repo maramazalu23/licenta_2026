@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
-
+from flask_login import current_user, login_required
 from app.scoring.service import evaluate_listing
 from app.db_market import (
     get_market_summary,
@@ -9,9 +9,12 @@ from app.db_market import (
 from app.services import (
     save_evaluation,
     get_evaluation_by_token,
+    is_listing_published,
     list_recent_evaluations,
     create_listing_from_evaluation,
     list_recent_listings,
+    list_user_evaluations,
+    list_user_listings,
 )
 
 
@@ -89,11 +92,52 @@ def _score_badge_class(score):
     return "bg-danger"
 
 
+def _validate_form(form_data, filters):
+    errors = {}
+
+    allowed_brands = set(filters.get("brands", []))
+    allowed_families = set(filters.get("families", []))
+    allowed_ram = {str(x) for x in filters.get("ram_options", [])}
+
+    if not form_data["title"]:
+        errors["title"] = "Completează titlul anunțului."
+
+    if not form_data["brand"]:
+        errors["brand"] = "Selectează un brand."
+    elif form_data["brand"] not in allowed_brands:
+        errors["brand"] = "Brand invalid."
+
+    if not form_data["model_family"]:
+        errors["model_family"] = "Selectează familia modelului."
+    elif form_data["model_family"] not in allowed_families:
+        errors["model_family"] = "Familie de model invalidă."
+
+    if not form_data["ram_gb"]:
+        errors["ram_gb"] = "Selectează cantitatea de RAM."
+    elif form_data["ram_gb"] not in allowed_ram:
+        errors["ram_gb"] = "Valoare RAM invalidă."
+
+    if not form_data["condition"]:
+        errors["condition"] = "Selectează condiția produsului."
+    elif form_data["condition"] not in {"used", "new"}:
+        errors["condition"] = "Condiție invalidă."
+
+    if not form_data["price_asked"]:
+        errors["price_asked"] = "Completează prețul cerut."
+    else:
+        price = _to_float(form_data["price_asked"])
+        if price is None:
+            errors["price_asked"] = "Prețul cerut trebuie să fie numeric."
+        elif price <= 0:
+            errors["price_asked"] = "Prețul cerut trebuie să fie mai mare decât 0."
+
+    if form_data["description"] and len(form_data["description"]) < 15:
+        errors["description"] = "Descrierea este prea scurtă. Adaugă mai multe detalii sau las-o goală."
+
+    return errors
+
+
 def _normalize_saved_result(result, form_input=None):
-    """
-    Compatibilitate pentru evaluari vechi salvate in DB.
-    Daca lipsesc noile chei (ex. outputs.fair_price), le completam din schema veche.
-    """
     if not result:
         return result
 
@@ -178,7 +222,10 @@ def index():
 
 @main_bp.route("/publish/<token>", methods=["POST"])
 def publish_listing(token):
-    listing, already_exists = create_listing_from_evaluation(token)
+    listing, already_exists = create_listing_from_evaluation(
+        token,
+        user_id=current_user.id if current_user.is_authenticated else None,
+    )
     if not listing:
         abort(404)
 
@@ -204,6 +251,8 @@ def evaluate():
         "price_asked": "",
     }
 
+    errors = {}
+
     if request.method == "POST":
         form_data = {
             "title": request.form.get("title", "").strip(),
@@ -214,6 +263,21 @@ def evaluate():
             "condition": request.form.get("condition", "").strip(),
             "price_asked": request.form.get("price_asked", "").strip(),
         }
+
+        errors = _validate_form(form_data, filters)
+
+        if errors:
+            flash("Formularul conține erori. Verifică câmpurile marcate.", "warning")
+            return render_template(
+                "evaluate.html",
+                filters=filters,
+                result=None,
+                form_data=form_data,
+                saved_token=None,
+                saved_created_at=None,
+                errors=errors,
+                listing_already_published=False,
+            )
 
         result = evaluate_listing(
             title=form_data["title"] or None,
@@ -227,10 +291,14 @@ def evaluate():
 
         result = _decorate_result_for_ui(result)
 
-        saved = save_evaluation(
+        saved, created_new = save_evaluation(
             input_payload=form_data,
             result_payload=result,
+            user_id=current_user.id if current_user.is_authenticated else None,
         )
+
+        if not created_new:
+            flash("Această evaluare există deja în istoric. A fost reutilizată înregistrarea anterioară.", "warning")
 
         return redirect(url_for("main.result_page", token=saved.token))
 
@@ -241,6 +309,8 @@ def evaluate():
         form_data=form_data,
         saved_token=None,
         saved_created_at=None,
+        errors=errors,
+        listing_already_published=False,
     )
 
 
@@ -257,6 +327,8 @@ def result_page(token):
 
     filters = get_explore_filters()
 
+    listing_already_published = is_listing_published(token)
+
     return render_template(
         "evaluate.html",
         filters=filters,
@@ -264,6 +336,8 @@ def result_page(token):
         form_data=form_input,
         saved_token=token,
         saved_created_at=saved["created_at"],
+        errors={},
+        listing_already_published=listing_already_published,
     )
 
 
@@ -305,4 +379,16 @@ def explore():
         filters=filters,
         selected=selected,
         data=data,
+    )
+
+
+@main_bp.route("/profile")
+@login_required
+def profile():
+    evaluations = list_user_evaluations(current_user.id, limit=20)
+    listings = list_user_listings(current_user.id, limit=20)
+    return render_template(
+        "profile.html",
+        evaluations=evaluations,
+        listings=listings,
     )

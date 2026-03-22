@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Înregistrare{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h1 class="h4 mb-3">Creează cont</h1>
+
+                <form method="post" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control {% if errors.email %}is-invalid{% endif %}" value="{{ form_data.email }}">
+                        {% if errors.email %}
+                            <div class="invalid-feedback">{{ errors.email }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Parolă</label>
+                        <input type="password" name="password" class="form-control {% if errors.password %}is-invalid{% endif %}">
+                        {% if errors.password %}
+                            <div class="invalid-feedback">{{ errors.password }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Confirmă parola</label>
+                        <input type="password" name="password_confirm" class="form-control {% if errors.password_confirm %}is-invalid{% endif %}">
+                        {% if errors.password_confirm %}
+                            <div class="invalid-feedback">{{ errors.password_confirm }}</div>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Creează cont</button>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary ms-2">Am deja cont</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
