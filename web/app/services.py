@@ -53,8 +53,15 @@ def _same_evaluation_input(left_payload, right_payload):
 def save_evaluation(input_payload, result_payload, user_id=None):
     normalized_input = _canonical_input_payload(input_payload)
 
+    query = EvaluationResult.query
+
+    if user_id is None:
+        query = query.filter(EvaluationResult.user_id.is_(None))
+    else:
+        query = query.filter_by(user_id=user_id)
+
     existing_rows = (
-        EvaluationResult.query
+        query
         .order_by(EvaluationResult.created_at.desc())
         .all()
     )
@@ -80,6 +87,25 @@ def save_evaluation(input_payload, result_payload, user_id=None):
     db.session.commit()
 
     return row, True
+
+
+def claim_evaluation_for_user(token, user_id):
+    if not token or not user_id:
+        return None
+
+    row = EvaluationResult.query.filter_by(token=token).first()
+    if not row:
+        return None
+
+    if row.user_id == user_id:
+        return row
+
+    if row.user_id is None:
+        row.user_id = user_id
+        db.session.commit()
+        return row
+
+    return row
 
 
 def get_evaluation_by_token(token):

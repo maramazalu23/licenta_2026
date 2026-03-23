@@ -341,8 +341,9 @@ def result_page(token):
 
 
 @main_bp.route("/history")
+@login_required
 def history():
-    rows = list_recent_evaluations(limit=30)
+    rows = list_user_evaluations(current_user.id, limit=30)
     return render_template("history.html", rows=rows)
 
 

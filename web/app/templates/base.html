@@ -25,6 +25,7 @@
                     </span>
                     <a class="nav-link" href="{{ url_for('main.profile') }}">Profil</a>
                     <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline ms-lg-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
                     </form>
                 {% else %}

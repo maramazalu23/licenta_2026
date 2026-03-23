@@ -4,9 +4,47 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db
 from app.models import User
+from app.services import claim_evaluation_for_user
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+
+def _safe_next_url():
+    next_url = request.values.get("next", "").strip()
+    if not next_url:
+        return None
+    if not next_url.startswith("/"):
+        return None
+    if next_url.startswith("//"):
+        return None
+    return next_url
+
+
+def _redirect_after_login(next_url):
+    if not next_url:
+        return url_for("main.profile")
+
+    if next_url.startswith("/publish/"):
+        token = next_url.removeprefix("/publish/").strip("/")
+        if token:
+            return url_for("main.result_page", token=token)
+        return url_for("main.profile")
+
+    return next_url
+
+
+def _token_from_next_url(next_url):
+    if not next_url:
+        return None
+
+    prefixes = ("/publish/", "/result/")
+    for prefix in prefixes:
+        if next_url.startswith(prefix):
+            token = next_url[len(prefix):].strip("/")
+            return token or None
+
+    return None
 
 
 def _validate_register_form(email, password, password_confirm):
@@ -54,6 +92,7 @@ def register():
         "email": "",
     }
     errors = {}
+    next_url = _safe_next_url()
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -65,7 +104,12 @@ def register():
 
         if errors:
             flash("Formularul de înregistrare conține erori.", "warning")
-            return render_template("register.html", form_data=form_data, errors=errors)
+            return render_template(
+                "register.html",
+                form_data=form_data,
+                errors=errors,
+                next_url=next_url,
+            )
 
         user = User(
             email=email,
@@ -76,9 +120,19 @@ def register():
 
         login_user(user)
         flash("Contul a fost creat cu succes.", "success")
-        return redirect(url_for("main.profile"))
 
-    return render_template("register.html", form_data=form_data, errors=errors)
+        token = _token_from_next_url(next_url)
+        if token:
+            claim_evaluation_for_user(token, user.id)
+
+        return redirect(_redirect_after_login(next_url))
+
+    return render_template(
+        "register.html",
+        form_data=form_data,
+        errors=errors,
+        next_url=next_url,
+    )
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -90,6 +144,7 @@ def login():
         "email": "",
     }
     errors = {}
+    next_url = _safe_next_url()
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -105,13 +160,23 @@ def login():
 
         if errors:
             flash("Autentificarea a eșuat. Verifică datele introduse.", "warning")
-            return render_template("login.html", form_data=form_data, errors=errors)
+            return render_template(
+                "login.html",
+                form_data=form_data,
+                errors=errors,
+                next_url=next_url,
+            )
 
         login_user(user)
         flash("Te-ai autentificat cu succes.", "success")
-        return redirect(url_for("main.profile"))
 
-    return render_template("login.html", form_data=form_data, errors=errors)
+        token = _token_from_next_url(next_url)
+        if token:
+            claim_evaluation_for_user(token, user.id)
+
+        return redirect(_redirect_after_login(next_url))
+    
+    return render_template("login.html", form_data=form_data, errors=errors, next_url=next_url)
 
 
 @auth_bp.route("/logout", methods=["POST"])

@@ -10,6 +10,10 @@
                 <h1 class="h4 mb-3">Creează cont</h1>
 
                 <form method="post" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if next_url %}
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                    {% endif %}
                     <div class="mb-3">
                         <label class="form-label">Email</label>
                         <input type="email" name="email" class="form-control {% if errors.email %}is-invalid{% endif %}" value="{{ form_data.email }}">
@@ -35,7 +39,7 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary">Creează cont</button>
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary ms-2">Am deja cont</a>
+                    <a href="{{ url_for('auth.login', next=next_url) if next_url else url_for('auth.login') }}" class="btn btn-outline-secondary ms-2">Am deja cont</a>
                 </form>
             </div>
         </div>

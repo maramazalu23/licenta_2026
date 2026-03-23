@@ -10,6 +10,11 @@
                 <h1 class="h4 mb-3">Autentificare</h1>
 
                 <form method="post" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if next_url %}
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                    {% endif %}
+
                     {% if errors.general %}
                         <div class="alert alert-danger">{{ errors.general }}</div>
                     {% endif %}
@@ -31,7 +36,7 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary">Intră în cont</button>
-                    <a href="{{ url_for('auth.register') }}" class="btn btn-outline-secondary ms-2">Creează cont</a>
+                    <a href="{{ url_for('auth.register', next=next_url) if next_url else url_for('auth.register') }}" class="btn btn-outline-secondary ms-2">Creează cont</a>
                 </form>
             </div>
         </div>

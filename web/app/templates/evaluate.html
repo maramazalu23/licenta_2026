@@ -10,6 +10,7 @@
                 <h2 class="h4 mb-3">Formular evaluare</h2>
 
                 <form method="post" action="{{ url_for('main.evaluate') }}" novalidate>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Titlu anunț</label>
                         <input type="text" name="title" class="form-control {% if errors.title %}is-invalid{% endif %}" value="{{ form_data.title }}">
@@ -115,6 +116,7 @@
                                 </div>
                             {% else %}
                                 <form method="post" action="{{ url_for('main.publish_listing', token=saved_token) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-success btn-sm">Publică anunțul în platformă</button>
                                 </form>
                             {% endif %}
