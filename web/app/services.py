@@ -50,6 +50,24 @@ def _same_evaluation_input(left_payload, right_payload):
     return _canonical_input_payload(left_payload) == _canonical_input_payload(right_payload)
 
 
+def _safe_int(value):
+    if value is None or value == "":
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _safe_float(value):
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def save_evaluation(input_payload, result_payload, user_id=None):
     normalized_input = _canonical_input_payload(input_payload)
 
@@ -60,11 +78,7 @@ def save_evaluation(input_payload, result_payload, user_id=None):
     else:
         query = query.filter_by(user_id=user_id)
 
-    existing_rows = (
-        query
-        .order_by(EvaluationResult.created_at.desc())
-        .all()
-    )
+    existing_rows = query.order_by(EvaluationResult.created_at.desc()).all()
 
     for existing in existing_rows:
         try:
@@ -189,6 +203,9 @@ def list_recent_evaluations(limit=20):
 
 
 def create_listing_from_evaluation(token, user_id=None):
+    if not user_id:
+        return None, False
+
     saved = get_evaluation_by_token(token)
     if not saved:
         return None, False
@@ -202,6 +219,7 @@ def create_listing_from_evaluation(token, user_id=None):
     listing = Listing(
         title=input_data.get("title") or "Anunț fără titlu",
         brand=input_data.get("brand"),
+        model_family=input_data.get("model_family"),
         ram_gb=_safe_int(input_data.get("ram_gb")),
         price_asked=_safe_float(input_data.get("price_asked")) or 0.0,
         condition=input_data.get("condition"),
@@ -247,6 +265,7 @@ def list_recent_listings(limit=30):
             "id": row.id,
             "title": row.title,
             "brand": row.brand,
+            "model_family": row.model_family,
             "ram_gb": row.ram_gb,
             "price_asked": row.price_asked,
             "condition": row.condition,
@@ -259,24 +278,6 @@ def list_recent_listings(limit=30):
 
     return items
 
-
-def _safe_int(value):
-    if value is None or value == "":
-        return None
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _safe_float(value):
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-    
 
 def list_user_evaluations(user_id, limit=20):
     rows = (
@@ -351,6 +352,7 @@ def list_user_listings(user_id, limit=20):
             "id": row.id,
             "title": row.title,
             "brand": row.brand,
+            "model_family": row.model_family,
             "ram_gb": row.ram_gb,
             "price_asked": row.price_asked,
             "condition": row.condition,

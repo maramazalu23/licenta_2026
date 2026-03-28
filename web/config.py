@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import warnings
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -13,8 +14,14 @@ WEB_DB_PATH = BASE_DIR / "web.db"
 PRODUCTS_DB_PATH = ROOT_DIR / "scraper" / "data_out" / "products.db"
 
 
+_secret = os.environ.get("SECRET_KEY")
+if not _secret:
+    warnings.warn("SECRET_KEY nu este setat. Se folosește cheia implicită de dezvoltare.")
+    _secret = "dev-secret-key-change-me"
+
+
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
+    SECRET_KEY = _secret
 
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{WEB_DB_PATH}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False

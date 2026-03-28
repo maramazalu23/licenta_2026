@@ -17,59 +17,61 @@
                 <h2 class="h5 mb-3">Evaluările mele</h2>
 
                 {% if evaluations %}
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle table-clean">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Titlu</th>
-                                    <th>Condiție</th>
-                                    <th>Preț recomandat</th>
-                                    <th>Scor ofertă</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in evaluations %}
-                                    {% if row.deal_score is none %}
-                                        {% set deal_badge_class = "badge-score-na" %}
-                                    {% elif row.deal_score >= 85 %}
-                                        {% set deal_badge_class = "badge-score-excellent" %}
-                                    {% elif row.deal_score >= 65 %}
-                                        {% set deal_badge_class = "badge-score-good" %}
-                                    {% elif row.deal_score >= 45 %}
-                                        {% set deal_badge_class = "badge-score-medium" %}
-                                    {% else %}
-                                        {% set deal_badge_class = "badge-score-low" %}
-                                    {% endif %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for row in evaluations %}
+                            {% if row.deal_score is none %}
+                                {% set deal_badge_class = "badge-score-na" %}
+                            {% elif row.deal_score >= 85 %}
+                                {% set deal_badge_class = "badge-score-excellent" %}
+                            {% elif row.deal_score >= 65 %}
+                                {% set deal_badge_class = "badge-score-good" %}
+                            {% elif row.deal_score >= 45 %}
+                                {% set deal_badge_class = "badge-score-medium" %}
+                            {% else %}
+                                {% set deal_badge_class = "badge-score-low" %}
+                            {% endif %}
 
-                                    <tr>
-                                        <td>{{ row.created_at.strftime("%d.%m.%Y %H:%M") }}</td>
-                                        <td>{{ row.title }}</td>
-                                        <td>
-                                            {% if row.condition == "used" %}
-                                                <span class="badge badge-condition-used">Second-hand</span>
-                                            {% elif row.condition == "new" %}
-                                                <span class="badge badge-condition-new">Nou</span>
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ row.recommended_price|price }}</td>
-                                        <td>
-                                            {% if row.deal_score is not none %}
-                                                <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}</span>
-                                            {% else %}
-                                                <span class="badge badge-score-na">N/A</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.token) }}">Vezi</a>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                            <div class="border rounded p-3 bg-white">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                    <div>
+                                        <div class="fw-semibold">{{ row.title or "-" }}</div>
+                                        <div class="text-muted small">
+                                            {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        {% if row.deal_score is not none %}
+                                            <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}</span>
+                                        {% else %}
+                                            <span class="badge badge-score-na">N/A</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2 mb-2">
+                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                                    <span class="badge text-bg-light">Preț recomandat: {{ row.recommended_price|price }}</span>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        {% if row.condition == "used" %}
+                                            <span class="badge badge-condition-used">Second-hand</span>
+                                        {% elif row.condition == "new" %}
+                                            <span class="badge badge-condition-new">Nou</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.token) }}">
+                                        Vezi evaluarea
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 {% else %}
                     <p class="text-muted mb-0">Nu ai încă evaluări asociate contului.</p>
@@ -84,43 +86,50 @@
                 <h2 class="h5 mb-3">Anunțurile mele</h2>
 
                 {% if listings %}
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle table-clean">
-                            <thead>
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Titlu</th>
-                                    <th>Condiție</th>
-                                    <th>Preț cerut</th>
-                                    <th>Evaluare</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in listings %}
-                                    <tr>
-                                        <td>{{ row.created_at.strftime("%d.%m.%Y %H:%M") }}</td>
-                                        <td>{{ row.title }}</td>
-                                        <td>
-                                            {% if row.condition == "used" %}
-                                                <span class="badge badge-condition-used">Second-hand</span>
-                                            {% elif row.condition == "new" %}
-                                                <span class="badge badge-condition-new">Nou</span>
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ row.price_asked|price }}</td>
-                                        <td>
-                                            {% if row.evaluation_token %}
-                                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">Vezi</a>
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="d-flex flex-column gap-3">
+                        {% for row in listings %}
+                            <div class="border rounded p-3 bg-white">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                    <div>
+                                        <div class="fw-semibold">{{ row.title or "-" }}</div>
+                                        <div class="text-muted small">
+                                            {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                                        </div>
+                                    </div>
+
+                                    <div class="fw-semibold">
+                                        {{ row.price_asked|price }}
+                                    </div>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2 mb-2">
+                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div>
+                                        {% if row.condition == "used" %}
+                                            <span class="badge badge-condition-used">Second-hand</span>
+                                        {% elif row.condition == "new" %}
+                                            <span class="badge badge-condition-new">Nou</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                        {% endif %}
+                                    </div>
+
+                                    <div>
+                                        {% if row.evaluation_token %}
+                                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
+                                                Vezi evaluarea
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted small">Fără evaluare</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 {% else %}
                     <p class="text-muted mb-0">Nu ai încă anunțuri asociate contului.</p>

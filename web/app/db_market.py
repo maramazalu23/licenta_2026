@@ -390,6 +390,7 @@ def get_similar_products(
 ) -> List[Dict[str, Any]]:
     """
     Returneaza produse similare cu un scor simplu de apropiere.
+    Sunt pastrate doar rezultatele cu similarity_score > 0.
     """
 
     brand = _clean_str(brand)
@@ -398,23 +399,23 @@ def get_similar_products(
     limit = max(1, min(int(limit), 50))
 
     score_parts = []
-    params: List[Any] = []
+    score_params: List[Any] = []
 
     if brand:
         score_parts.append("CASE WHEN brand_norm = ? THEN 3 ELSE 0 END")
-        params.append(brand)
+        score_params.append(brand)
     else:
         score_parts.append("0")
 
     if model_family:
         score_parts.append("CASE WHEN model_family = ? THEN 4 ELSE 0 END")
-        params.append(model_family)
+        score_params.append(model_family)
     else:
         score_parts.append("0")
 
     if ram_gb is not None:
         score_parts.append("CASE WHEN ram_gb = ? THEN 2 ELSE 0 END")
-        params.append(ram_gb)
+        score_params.append(ram_gb)
     else:
         score_parts.append("0")
 
@@ -442,12 +443,12 @@ def get_similar_products(
             ({score_expr}) AS similarity_score
         FROM products_clean
         WHERE {' AND '.join(base_clauses)}
+          AND ({score_expr}) > 0
         ORDER BY similarity_score DESC, price_ron ASC
         LIMIT ?
     """
-    params = base_params + params
-    params.append(limit)
 
+    params = score_params + base_params + score_params + [limit]
     rows = _fetch_all(query, params)
 
     results = []

@@ -5,12 +5,12 @@ from app.db_market import (
     get_market_summary,
     get_explore_filters,
     get_explore_products,
+    get_similar_products,
 )
 from app.services import (
     save_evaluation,
     get_evaluation_by_token,
     is_listing_published,
-    list_recent_evaluations,
     create_listing_from_evaluation,
     list_recent_listings,
     list_user_evaluations,
@@ -107,9 +107,7 @@ def _validate_form(form_data, filters):
     elif form_data["brand"] not in allowed_brands:
         errors["brand"] = "Brand invalid."
 
-    if not form_data["model_family"]:
-        errors["model_family"] = "Selectează familia modelului."
-    elif form_data["model_family"] not in allowed_families:
+    if form_data["model_family"] and form_data["model_family"] not in allowed_families:
         errors["model_family"] = "Familie de model invalidă."
 
     if not form_data["ram_gb"]:
@@ -278,6 +276,7 @@ def evaluate():
                 saved_created_at=None,
                 errors=errors,
                 listing_already_published=False,
+                similar=[]
             )
 
         result = evaluate_listing(
@@ -310,6 +309,7 @@ def evaluate():
         saved_created_at=None,
         errors=errors,
         listing_already_published=False,
+        similar=[]
     )
 
 
@@ -328,6 +328,13 @@ def result_page(token):
 
     listing_already_published = is_listing_published(token)
 
+    similar = get_similar_products(
+        brand=form_input.get("brand"),
+        ram_gb=_to_int(form_input.get("ram_gb")),
+        model_family=form_input.get("model_family"),
+        limit=4,
+    )
+
     return render_template(
         "evaluate.html",
         filters=filters,
@@ -337,6 +344,7 @@ def result_page(token):
         saved_created_at=saved["created_at"],
         errors={},
         listing_already_published=listing_already_published,
+        similar=similar,
     )
 
 
