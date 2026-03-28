@@ -2,11 +2,10 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from config import Config
 
-BASE_DIR = Path(__file__).resolve().parent
-WEB_DIR = BASE_DIR.parent
-ROOT_DIR = WEB_DIR.parent
-PRODUCTS_DB_PATH = ROOT_DIR / "scraper" / "data_out" / "products.db"
+
+PRODUCTS_DB_PATH = Path(Config.PRODUCTS_DB_PATH)
 
 BAD_TITLE_TOKENS = [
     "dezmembrare",

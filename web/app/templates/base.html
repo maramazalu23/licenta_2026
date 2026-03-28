@@ -20,7 +20,6 @@
                 <a class="nav-link" href="{{ url_for('main.listings') }}">Anunțuri</a>
 
                 {% if current_user.is_authenticated %}
-                    <a class="nav-link" href="{{ url_for('main.history') }}">Istoric</a>
                     <span class="navbar-text text-light-emphasis ms-lg-3 me-lg-2 small">
                         {{ current_user.email }}
                     </span>
