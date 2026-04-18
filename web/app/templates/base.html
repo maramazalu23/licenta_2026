@@ -13,25 +13,42 @@
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">Licență 2026</a>
 
-            <div class="navbar-nav ms-auto align-items-lg-center">
-                <a class="nav-link" href="{{ url_for('main.index') }}">Acasă</a>
-                <a class="nav-link" href="{{ url_for('main.evaluate') }}">Evaluare</a>
-                <a class="nav-link" href="{{ url_for('main.explore') }}">Explore</a>
-                <a class="nav-link" href="{{ url_for('main.listings') }}">Anunțuri</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-                {% if current_user.is_authenticated %}
-                    <span class="navbar-text text-light-emphasis ms-lg-3 me-lg-2 small">
-                        {{ current_user.email }}
-                    </span>
-                    <a class="nav-link" href="{{ url_for('main.profile') }}">Profil</a>
-                    <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline ms-lg-2">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
-                    </form>
-                {% else %}
-                    <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
-                    <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a>
-                {% endif %}
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <div class="navbar-nav ms-auto align-items-lg-center">
+                    <a class="nav-link" href="{{ url_for('main.index') }}">Acasă</a>
+                    <a class="nav-link" href="{{ url_for('main.evaluate') }}">Evaluare</a>
+                    <a class="nav-link" href="{{ url_for('main.explore') }}">Explore</a>
+                    <a class="nav-link" href="{{ url_for('main.listings') }}">Anunțuri</a>
+
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.is_admin %}
+                            <a class="nav-link" href="{{ url_for('main.admin_dashboard') }}">Dashboard admin</a>
+                            <a class="nav-link" href="{{ url_for('main.admin_history') }}">Istoric global</a>
+                        {% elif current_user.is_seller %}
+                            <a class="nav-link" href="{{ url_for('main.profile') }}">Dashboard seller</a>
+                            <a class="nav-link" href="{{ url_for('main.history') }}">Istoric</a>
+                        {% elif current_user.is_buyer %}
+                            <a class="nav-link" href="{{ url_for('main.history') }}">Istoric</a>
+                            <a class="nav-link" href="{{ url_for('main.favorites') }}">Favorite</a>
+                        {% endif %}
+
+                        <span class="navbar-text text-light-emphasis ms-lg-3 me-lg-2 small">
+                            {{ current_user.email }} · {{ current_user.role }}
+                        </span>
+
+                        <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline ms-lg-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
+                        </form>
+                    {% else %}
+                        <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                        <a class="nav-link" href="{{ url_for('auth.register') }}">Register</a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </nav>

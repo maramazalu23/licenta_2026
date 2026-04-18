@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard admin{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h1 class="h4 mb-1">Dashboard admin</h1>
+        <p class="text-muted mb-0">
+            Panou de control pentru activitatea globală a platformei.
+        </p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Produse analizate</h6>
+                <div class="fs-3 fw-bold">{{ summary.total_products }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Second-hand</h6>
+                <div class="fs-3 fw-bold">{{ summary.used_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Produse noi</h6>
+                <div class="fs-3 fw-bold">{{ summary.new_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6 class="text-muted">Branduri distincte</h6>
+                <div class="fs-3 fw-bold">{{ summary.distinct_brands }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 mb-0">Evaluări recente</h2>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.admin_history') }}">Vezi tot</a>
+                </div>
+
+                {% if recent_evaluations %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for row in recent_evaluations %}
+                            <div class="border rounded p-3 bg-white">
+                                <div class="fw-semibold">{{ row.title or "-" }}</div>
+                                <div class="text-muted small mb-2">
+                                    {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2 mb-2">
+                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                                </div>
+
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.result_page', token=row.token) }}">
+                                    Vezi evaluarea
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">Nu există încă evaluări.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Anunțuri recente</h2>
+
+                {% if recent_listings %}
+                    <div class="d-flex flex-column gap-3">
+                        {% for row in recent_listings %}
+                            <div class="border rounded p-3 bg-white">
+                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                    <div>
+                                        <div class="fw-semibold">{{ row.title or "-" }}</div>
+                                        <div class="text-muted small">
+                                            {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                                        </div>
+                                    </div>
+                                    <div class="fw-semibold">{{ row.price_asked|price }}</div>
+                                </div>
+
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                                    <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">Nu există încă anunțuri.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

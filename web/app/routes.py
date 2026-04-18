@@ -1,5 +1,9 @@
+from functools import wraps
+
 from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
 from flask_login import current_user, login_required
+
+from app.models import User
 from app.scoring.service import evaluate_listing
 from app.db_market import (
     get_market_summary,
@@ -15,10 +19,30 @@ from app.services import (
     list_recent_listings,
     list_user_evaluations,
     list_user_listings,
+    list_recent_evaluations,
+    list_admin_evaluations,
+    get_admin_history_filters,
+    add_favorite,
+    remove_favorite,
+    list_user_favorites,
+    build_favorite_keys,
 )
 
 
 main_bp = Blueprint("main", __name__)
+
+
+def role_required(*allowed_roles):
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapped_view(*args, **kwargs):
+            if current_user.role not in allowed_roles:
+                flash("Nu ai permisiunea să accesezi această pagină.", "danger")
+                return redirect(url_for("main.index"))
+            return view_func(*args, **kwargs)
+        return wrapped_view
+    return decorator
 
 
 def _to_int(value):
@@ -214,12 +238,130 @@ def _decorate_result_for_ui(result):
 
 @main_bp.route("/")
 def index():
+    if current_user.is_authenticated and current_user.is_admin:
+        return redirect(url_for("main.admin_dashboard"))
+
     summary = get_market_summary()
-    return render_template("index.html", summary=summary)
+
+    seller_overview = None
+    buyer_overview = None
+
+    if current_user.is_authenticated and current_user.is_seller:
+        seller_evaluations = list_user_evaluations(current_user.id, limit=20)
+        seller_listings = list_user_listings(current_user.id, limit=20)
+
+        avg_deal_score = None
+        valid_scores = [row["deal_score"] for row in seller_evaluations if row.get("deal_score") is not None]
+        if valid_scores:
+            avg_deal_score = round(sum(valid_scores) / len(valid_scores), 2)
+
+        seller_overview = {
+            "listings_count": len(seller_listings),
+            "evaluations_count": len(seller_evaluations),
+            "avg_deal_score": avg_deal_score,
+        }
+
+    if current_user.is_authenticated and current_user.is_buyer:
+        buyer_overview = {
+            "message": "Poți analiza piața în Explore și salva favorite din anunțurile reale publicate în platformă.",
+        }
+
+    return render_template(
+        "index.html",
+        summary=summary,
+        seller_overview=seller_overview,
+        buyer_overview=buyer_overview,
+    )
+
+
+@main_bp.route("/admin/dashboard")
+@role_required(User.ROLE_ADMIN)
+def admin_dashboard():
+    summary = get_market_summary()
+    recent_evaluations = list_recent_evaluations(limit=10)
+    recent_listings = list_recent_listings(limit=10)
+
+    return render_template(
+        "admin_dashboard.html",
+        summary=summary,
+        recent_evaluations=recent_evaluations,
+        recent_listings=recent_listings,
+    )
+
+
+@main_bp.route("/admin/history")
+@role_required(User.ROLE_ADMIN)
+def admin_history():
+    selected = {
+        "brand": request.args.get("brand", "").strip(),
+        "condition": request.args.get("condition", "").strip(),
+        "date_from": request.args.get("date_from", "").strip(),
+        "date_to": request.args.get("date_to", "").strip(),
+    }
+
+    rows = list_admin_evaluations(
+        limit=100,
+        brand=selected["brand"] or None,
+        condition=selected["condition"] or None,
+        date_from=selected["date_from"] or None,
+        date_to=selected["date_to"] or None,
+    )
+    filters = get_admin_history_filters()
+
+    return render_template(
+        "admin_history.html",
+        rows=rows,
+        filters=filters,
+        selected=selected,
+    )
+
+
+@main_bp.route("/favorites")
+@role_required(User.ROLE_BUYER)
+def favorites():
+    rows = list_user_favorites(current_user.id)
+    return render_template("favorites.html", rows=rows)
+
+
+@main_bp.route("/favorites/add", methods=["POST"])
+@role_required(User.ROLE_BUYER)
+def add_to_favorites():
+    brand = request.form.get("brand", "").strip()
+    model_family = request.form.get("model_family", "").strip()
+    ram_gb = request.form.get("ram_gb", "").strip()
+
+    favorite, created = add_favorite(
+        user_id=current_user.id,
+        brand=brand,
+        model_family=model_family or None,
+        ram_gb=ram_gb or None,
+    )
+
+    if not favorite:
+        flash("Preferința nu a putut fi salvată. Verifică datele trimise.", "warning")
+    elif created:
+        flash("Categoria a fost adăugată la favorite.", "success")
+    else:
+        flash("Această categorie există deja la favorite.", "warning")
+
+    return redirect(url_for("main.listings"))
+
+
+@main_bp.route("/favorites/<int:favorite_id>/remove", methods=["POST"])
+@role_required(User.ROLE_BUYER)
+def remove_from_favorites(favorite_id):
+    ok = remove_favorite(favorite_id, current_user.id)
+
+    if ok:
+        flash("Favoritul a fost șters.", "success")
+    else:
+        flash("Favoritul nu a putut fi șters.", "warning")
+
+    return redirect(url_for("main.favorites"))
 
 
 @main_bp.route("/publish/<token>", methods=["POST"])
-@login_required
+@role_required(User.ROLE_SELLER, User.ROLE_ADMIN)
 def publish_listing(token):
     listing, already_exists = create_listing_from_evaluation(
         token,
@@ -276,7 +418,7 @@ def evaluate():
                 saved_created_at=None,
                 errors=errors,
                 listing_already_published=False,
-                similar=[]
+                similar=[],
             )
 
         result = evaluate_listing(
@@ -309,7 +451,7 @@ def evaluate():
         saved_created_at=None,
         errors=errors,
         listing_already_published=False,
-        similar=[]
+        similar=[],
     )
 
 
@@ -325,7 +467,6 @@ def result_page(token):
     result = _decorate_result_for_ui(result)
 
     filters = get_explore_filters()
-
     listing_already_published = is_listing_published(token)
 
     similar = get_similar_products(
@@ -349,7 +490,7 @@ def result_page(token):
 
 
 @main_bp.route("/history")
-@login_required
+@role_required(User.ROLE_SELLER, User.ROLE_BUYER, User.ROLE_ADMIN)
 def history():
     rows = list_user_evaluations(current_user.id, limit=30)
     return render_template("history.html", rows=rows)
@@ -358,7 +499,12 @@ def history():
 @main_bp.route("/listings")
 def listings():
     rows = list_recent_listings(limit=30)
-    return render_template("listings.html", rows=rows)
+
+    favorite_keys = set()
+    if current_user.is_authenticated and current_user.is_buyer:
+        favorite_keys = build_favorite_keys(current_user.id)
+
+    return render_template("listings.html", rows=rows, favorite_keys=favorite_keys)
 
 
 @main_bp.route("/explore")
@@ -391,7 +537,7 @@ def explore():
 
 
 @main_bp.route("/profile")
-@login_required
+@role_required(User.ROLE_SELLER)
 def profile():
     evaluations = list_user_evaluations(current_user.id, limit=20)
     listings = list_user_listings(current_user.id, limit=20)

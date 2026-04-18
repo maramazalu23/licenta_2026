@@ -4,21 +4,37 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-5">
+    <div class="col-lg-6">
         <div class="card shadow-sm">
             <div class="card-body">
                 <h1 class="h4 mb-3">Creează cont</h1>
+                <p class="text-muted">
+                    Alege tipul de cont potrivit pentru modul în care vei folosi platforma.
+                </p>
 
                 <form method="post" novalidate>
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     {% if next_url %}
                         <input type="hidden" name="next" value="{{ next_url }}">
                     {% endif %}
+
                     <div class="mb-3">
                         <label class="form-label">Email</label>
                         <input type="email" name="email" class="form-control {% if errors.email %}is-invalid{% endif %}" value="{{ form_data.email }}">
                         {% if errors.email %}
                             <div class="invalid-feedback">{{ errors.email }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Tip cont</label>
+                        <select name="role" class="form-select {% if errors.role %}is-invalid{% endif %}">
+                            <option value="">-- alege --</option>
+                            <option value="buyer" {% if form_data.role == "buyer" %}selected{% endif %}>Cumpărător</option>
+                            <option value="seller" {% if form_data.role == "seller" %}selected{% endif %}>Vânzător</option>
+                        </select>
+                        {% if errors.role %}
+                            <div class="invalid-feedback">{{ errors.role }}</div>
                         {% endif %}
                     </div>
 

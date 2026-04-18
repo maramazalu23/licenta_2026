@@ -44,8 +44,8 @@
                         <label class="form-label">Condiție</label>
                         <select name="condition" class="form-select">
                             <option value="">-- toate --</option>
-                            <option value="used" {% if selected.condition == "used" %}selected{% endif %}>used</option>
-                            <option value="new" {% if selected.condition == "new" %}selected{% endif %}>new</option>
+                            <option value="used" {% if selected.condition == "used" %}selected{% endif %}>Second-hand</option>
+                            <option value="new" {% if selected.condition == "new" %}selected{% endif %}>Nou</option>
                         </select>
                     </div>
 
@@ -71,7 +71,10 @@
     <div class="col-lg-9">
         <div class="card shadow-sm mb-4">
             <div class="card-body">
-                <h1 class="h4 mb-3">Explorare bază de produse</h1>
+                <h1 class="h4 mb-2">Explorare bază de produse</h1>
+                <p class="text-muted mb-3">
+                    Această pagină este pentru analiză de piață și comparație cu surse externe. Favoritele buyerului se salvează din anunțurile publicate în platformă.
+                </p>
 
                 <div class="row g-3">
                     <div class="col-md-3">

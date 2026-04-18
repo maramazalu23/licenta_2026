@@ -5,7 +5,15 @@
 {% block content %}
 <div class="card shadow-sm">
     <div class="card-body">
-        <h1 class="h4 mb-3">Anunțuri salvate în platformă</h1>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <h1 class="h4 mb-0">Anunțuri salvate în platformă</h1>
+
+            {% if current_user.is_authenticated and current_user.is_buyer %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.favorites') }}">
+                    Vezi favoritele mele
+                </a>
+            {% endif %}
+        </div>
 
         {% if rows %}
             <div class="d-flex flex-column gap-3">
@@ -21,6 +29,8 @@
                     {% else %}
                         {% set deal_badge_class = "badge-score-low" %}
                     {% endif %}
+
+                    {% set fav_key = (row.brand or "", row.model_family or "", row.ram_gb) %}
 
                     <div class="border rounded p-3 bg-white">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
@@ -70,14 +80,36 @@
                             </div>
                         {% endif %}
 
-                        <div class="d-flex justify-content-end">
-                            {% if row.evaluation_token %}
-                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
-                                    Vezi evaluarea
-                                </a>
-                            {% else %}
-                                <span class="text-muted small">Fără evaluare asociată</span>
-                            {% endif %}
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                {% if current_user.is_authenticated and current_user.is_buyer %}
+                                    {% if fav_key in favorite_keys %}
+                                        <span class="badge text-bg-success">Salvat la favorite</span>
+                                    {% elif row.brand %}
+                                        <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input type="hidden" name="brand" value="{{ row.brand }}">
+                                            <input type="hidden" name="model_family" value="{{ row.model_family or '' }}">
+                                            <input type="hidden" name="ram_gb" value="{{ row.ram_gb or '' }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                                Adaugă la favorite
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <span class="text-muted small">Favorit indisponibil</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+
+                            <div>
+                                {% if row.evaluation_token %}
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
+                                        Vezi evaluarea
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">Fără evaluare asociată</span>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 {% endfor %}
