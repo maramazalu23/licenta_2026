@@ -30,6 +30,9 @@ from app.services import (
     count_unread_notifications,
     mark_notification_as_read,
     mark_all_notifications_as_read,
+    generate_seller_notifications_for_user,
+    refresh_seller_notifications_for_listing_segment,
+    can_user_publish_evaluation,
 )
 
 
@@ -352,6 +355,7 @@ def add_to_favorites():
     if not favorite:
         flash("Anunțul nu a putut fi salvat la favorite.", "warning")
     elif created:
+        refresh_seller_notifications_for_listing_segment(favorite.listing_id)
         flash("Anunțul a fost adăugat la favorite.", "success")
     else:
         flash("Acest anunț există deja la favorite.", "warning")
@@ -362,9 +366,15 @@ def add_to_favorites():
 @main_bp.route("/favorites/<int:favorite_id>/remove", methods=["POST"])
 @role_required(User.ROLE_BUYER)
 def remove_from_favorites(favorite_id):
+    favorite_rows = list_user_favorites(current_user.id)
+    favorite_row = next((row for row in favorite_rows if row["id"] == favorite_id), None)
+    listing_id = favorite_row["listing_id"] if favorite_row else None
+
     ok = remove_favorite(favorite_id, current_user.id)
 
     if ok:
+        if listing_id:
+            refresh_seller_notifications_for_listing_segment(listing_id)
         flash("Favoritul a fost șters.", "success")
     else:
         flash("Favoritul nu a putut fi șters.", "warning")
@@ -408,16 +418,26 @@ def mark_all_notifications_read_route():
 @main_bp.route("/publish/<token>", methods=["POST"])
 @role_required(User.ROLE_SELLER, User.ROLE_ADMIN)
 def publish_listing(token):
-    listing, already_exists = create_listing_from_evaluation(
+    listing, already_exists, error_code = create_listing_from_evaluation(
         token,
         user_id=current_user.id,
+        is_admin=current_user.is_admin,
     )
+
+    if error_code == "forbidden":
+        abort(403)
+
+    if error_code == "not_found":
+        abort(404)
+
     if not listing:
         abort(404)
 
     if already_exists:
         flash("Anunțul a fost deja publicat în platformă.", "warning")
     else:
+        if listing.user and listing.user.is_seller:
+            generate_seller_notifications_for_user(listing.user_id)
         flash("Anunțul a fost publicat cu succes în platformă.", "success")
 
     return redirect(url_for("main.listings"))
@@ -463,6 +483,8 @@ def evaluate():
                 saved_created_at=None,
                 errors=errors,
                 listing_already_published=False,
+                can_publish=False,
+                publish_block_reason=None,
                 similar=[],
             )
 
@@ -496,6 +518,8 @@ def evaluate():
         saved_created_at=None,
         errors=errors,
         listing_already_published=False,
+        can_publish=False,
+        publish_block_reason=None,
         similar=[],
     )
 
@@ -513,6 +537,14 @@ def result_page(token):
 
     filters = get_explore_filters()
     listing_already_published = is_listing_published(token)
+    can_publish = can_user_publish_evaluation(token, current_user)
+
+    publish_block_reason = None
+    if current_user.is_authenticated and (current_user.is_seller or current_user.is_admin):
+        if listing_already_published:
+            publish_block_reason = "already_published"
+        elif not can_publish:
+            publish_block_reason = "forbidden"
 
     similar = get_similar_products(
         brand=form_input.get("brand"),
@@ -530,6 +562,8 @@ def result_page(token):
         saved_created_at=saved["created_at"],
         errors={},
         listing_already_published=listing_already_published,
+        can_publish=can_publish,
+        publish_block_reason=publish_block_reason,
         similar=similar,
     )
 

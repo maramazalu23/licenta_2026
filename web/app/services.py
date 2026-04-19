@@ -299,6 +299,23 @@ def is_listing_published(token):
     return Listing.query.filter_by(evaluation_token=token).first() is not None
 
 
+def can_user_publish_evaluation(token, user):
+    if not token or user is None or not getattr(user, "is_authenticated", False):
+        return False
+
+    if not (user.is_seller or user.is_admin):
+        return False
+
+    row = EvaluationResult.query.filter_by(token=token).first()
+    if not row:
+        return False
+
+    if user.is_admin:
+        return True
+
+    return row.user_id == user.id
+
+
 def list_recent_evaluations(limit=20):
     rows = (
         EvaluationResult.query
@@ -359,20 +376,35 @@ def get_admin_history_filters():
     }
 
 
-def create_listing_from_evaluation(token, user_id=None):
-    if not user_id:
-        return None, False
+def create_listing_from_evaluation(token, user_id=None, is_admin=False):
+    if not token or not user_id:
+        return None, False, "invalid"
 
-    saved = get_evaluation_by_token(token)
-    if not saved:
-        return None, False
+    evaluation_row = EvaluationResult.query.filter_by(token=token).first()
+    if not evaluation_row:
+        return None, False, "not_found"
+
+    if not is_admin and evaluation_row.user_id != user_id:
+        return None, False, "forbidden"
 
     existing = Listing.query.filter_by(evaluation_token=token).first()
     if existing:
-        return existing, True
+        return existing, True, None
+
+    saved = {
+        "id": evaluation_row.id,
+        "token": evaluation_row.token,
+        "created_at": evaluation_row.created_at,
+        "input": json.loads(evaluation_row.input_json),
+        "result": json.loads(evaluation_row.result_json),
+    }
 
     input_data = saved["input"]
     recommended_price, deal_score = _extract_listing_metrics_from_saved(saved)
+
+    owner_id = evaluation_row.user_id or user_id
+    if not owner_id:
+        return None, False, "forbidden"
 
     listing = Listing(
         title=input_data.get("title") or "Anunț fără titlu",
@@ -385,12 +417,44 @@ def create_listing_from_evaluation(token, user_id=None):
         recommended_price=_safe_float(recommended_price),
         deal_score=_safe_float(deal_score),
         evaluation_token=token,
-        user_id=user_id,
+        user_id=owner_id,
     )
 
     db.session.add(listing)
     db.session.commit()
-    return listing, False
+    return listing, False, None
+
+
+def refresh_seller_notifications_for_listing_segment(listing_id):
+    listing_id = _safe_int(listing_id)
+    if not listing_id:
+        return 0
+
+    listing = Listing.query.filter_by(id=listing_id).first()
+    if not listing or not listing.brand:
+        return 0
+
+    segment_listings = (
+        Listing.query
+        .filter_by(
+            brand=listing.brand,
+            model_family=listing.model_family,
+            ram_gb=listing.ram_gb,
+        )
+        .all()
+    )
+
+    seller_ids = {
+        row.user_id
+        for row in segment_listings
+        if row.user_id and row.user and row.user.is_seller
+    }
+
+    updated = 0
+    for seller_id in seller_ids:
+        updated += generate_seller_notifications_for_user(seller_id)
+
+    return updated
 
 
 def list_recent_listings(limit=30):
@@ -540,6 +604,7 @@ def generate_seller_notifications_for_user(user_id):
 
     created_or_updated = 0
     seen_segments = set()
+    active_segments = set()
 
     for listing in listings:
         segment_key = (listing.brand or "", listing.model_family or "", listing.ram_gb)
@@ -549,6 +614,8 @@ def generate_seller_notifications_for_user(user_id):
 
         if not listing.brand:
             continue
+
+        active_segments.add(segment_key)
 
         matching_listing_ids = {
             row.id
@@ -571,7 +638,23 @@ def generate_seller_notifications_for_user(user_id):
         buyer_ids = sorted({fav.user_id for fav in matching_favorites if fav.user_id != user_id})
         buyers_count = len(buyer_ids)
 
+        latest = (
+            Notification.query
+            .filter_by(
+                user_id=user_id,
+                type="favorite_match",
+                brand=listing.brand,
+                model_family=listing.model_family,
+                ram_gb=listing.ram_gb,
+            )
+            .order_by(Notification.created_at.desc())
+            .first()
+        )
+
         if buyers_count <= 0:
+            if latest:
+                db.session.delete(latest)
+                created_or_updated += 1
             continue
 
         market_median = _market_median_for_listing(
@@ -588,7 +671,6 @@ def generate_seller_notifications_for_user(user_id):
         )
 
         title = f"Interes detectat pentru {segment_label}"
-
         buyer_phrase = "cumpărător a" if buyers_count == 1 else "cumpărători au"
 
         if market_median is not None:
@@ -602,26 +684,14 @@ def generate_seller_notifications_for_user(user_id):
                 f"Nu există momentan o mediană de piață suficient de clară pentru acest segment."
             )
 
-        latest = (
-            Notification.query
-            .filter_by(
-                user_id=user_id,
-                type="favorite_match",
-                brand=listing.brand,
-                model_family=listing.model_family,
-                ram_gb=listing.ram_gb,
-            )
-            .order_by(Notification.created_at.desc())
-            .first()
-        )
-
         if latest and latest.message == message and latest.title == title:
             continue
 
-        if latest and not latest.is_read:
+        if latest:
             latest.title = title
             latest.message = message
             latest.created_at = utc_now()
+            latest.is_read = False
             latest.read_at = None
             created_or_updated += 1
             continue
@@ -638,6 +708,18 @@ def generate_seller_notifications_for_user(user_id):
         )
         db.session.add(row)
         created_or_updated += 1
+
+    stale_notifications = (
+        Notification.query
+        .filter_by(user_id=user_id, type="favorite_match")
+        .all()
+    )
+
+    for row in stale_notifications:
+        row_key = (row.brand or "", row.model_family or "", row.ram_gb)
+        if row_key not in active_segments:
+            db.session.delete(row)
+            created_or_updated += 1
 
     if created_or_updated:
         db.session.commit()

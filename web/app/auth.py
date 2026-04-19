@@ -1,10 +1,11 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import User
-from app.services import claim_evaluation_for_user, generate_seller_notifications_for_user
+from app.services import claim_evaluation_for_user
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -137,7 +138,19 @@ def register():
             role=role,
         )
         db.session.add(user)
-        db.session.commit()
+
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            errors["email"] = "Există deja un cont cu acest email."
+            flash("Există deja un cont cu acest email.", "warning")
+            return render_template(
+                "register.html",
+                form_data=form_data,
+                errors=errors,
+                next_url=next_url,
+            )
 
         login_user(user)
         flash("Contul a fost creat cu succes.", "success")
@@ -145,9 +158,6 @@ def register():
         token = _token_from_next_url(next_url)
         if token:
             claim_evaluation_for_user(token, user.id)
-
-        if user.is_seller:
-            generate_seller_notifications_for_user(user.id)
 
         return redirect(_redirect_after_login(user, next_url))
 
@@ -198,9 +208,6 @@ def login():
         token = _token_from_next_url(next_url)
         if token:
             claim_evaluation_for_user(token, user.id)
-
-        if user.is_seller:
-            generate_seller_notifications_for_user(user.id)
 
         return redirect(_redirect_after_login(user, next_url))
 
