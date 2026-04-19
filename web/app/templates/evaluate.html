@@ -115,7 +115,7 @@
                                         </a>
                                     </div>
                                 </div>
-                            {% else %}
+                            {% elif current_user.is_authenticated and (current_user.is_seller or current_user.is_admin) %}
                                 <form method="post" action="{{ url_for('main.publish_listing', token=saved_token) }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-success btn-sm">Publică anunțul în platformă</button>
@@ -263,72 +263,73 @@
                             {% endif %}
                         </div>
                     </div>
-                {% if similar %}
-                    <div class="section-box mt-4">
-                        <div class="section-title-row">
-                            <h3 class="h5 mb-0">Produse similare din baza de date</h3>
-                            <span class="badge bg-secondary">{{ similar|length }} rezultate</span>
-                        </div>
 
-                        <p class="text-muted small mt-2 mb-3">
-                            Exemple selectate pe baza informațiilor completate în formular. Similaritatea este estimată folosind brandul, familia modelului și configurația RAM, în funcție de datele disponibile.
-                        </p>
+                    {% if similar %}
+                        <div class="section-box mt-4">
+                            <div class="section-title-row">
+                                <h3 class="h5 mb-0">Produse similare din baza de date</h3>
+                                <span class="badge bg-secondary">{{ similar|length }} rezultate</span>
+                            </div>
 
-                        <div class="row g-3">
-                            {% for item in similar %}
-                                <div class="col-12">
-                                    <div class="border rounded p-3 bg-white">
-                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                                            <div>
-                                                {% if item.url %}
-                                                    <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-none">
-                                                        {{ item.title or "-" }}
-                                                    </a>
+                            <p class="text-muted small mt-2 mb-3">
+                                Exemple selectate pe baza informațiilor completate în formular. Similaritatea este estimată folosind brandul, familia modelului și configurația RAM, în funcție de datele disponibile.
+                            </p>
+
+                            <div class="row g-3">
+                                {% for item in similar %}
+                                    <div class="col-12">
+                                        <div class="border rounded p-3 bg-white">
+                                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                                <div>
+                                                    {% if item.url %}
+                                                        <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-none">
+                                                            {{ item.title or "-" }}
+                                                        </a>
+                                                    {% else %}
+                                                        <span class="fw-semibold">{{ item.title or "-" }}</span>
+                                                    {% endif %}
+                                                </div>
+
+                                                <div class="text-end">
+                                                    <div class="fw-bold">{{ item.price_ron|price }}</div>
+                                                    <small class="text-muted">Scor similaritate: {{ item.similarity_score }}</small>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                                <span class="badge text-bg-light">Sursă: {{ item.source or "-" }}</span>
+                                                <span class="badge text-bg-light">Brand: {{ item.brand or "-" }}</span>
+                                                <span class="badge text-bg-light">Familie: {{ item.model_family or "-" }}</span>
+                                                <span class="badge text-bg-light">RAM: {{ item.ram_gb or "-" }} GB</span>
+                                            </div>
+
+                                            <div class="d-flex flex-wrap gap-2">
+                                                {% if item.condition == "used" %}
+                                                    <span class="badge badge-condition-used">Second-hand</span>
+                                                {% elif item.condition == "new" %}
+                                                    <span class="badge badge-condition-new">Nou</span>
                                                 {% else %}
-                                                    <span class="fw-semibold">{{ item.title or "-" }}</span>
+                                                    <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                                {% endif %}
+
+                                                {% if item.cpu %}
+                                                    <span class="badge text-bg-light">CPU: {{ item.cpu }}</span>
+                                                {% endif %}
+
+                                                {% if item.storage %}
+                                                    <span class="badge text-bg-light">Stocare: {{ item.storage }}</span>
+                                                {% endif %}
+
+                                                {% if item.gpu %}
+                                                    <span class="badge text-bg-light">GPU: {{ item.gpu }}</span>
                                                 {% endif %}
                                             </div>
-
-                                            <div class="text-end">
-                                                <div class="fw-bold">{{ item.price_ron|price }}</div>
-                                                <small class="text-muted">Scor similaritate: {{ item.similarity_score }}</small>
-                                            </div>
-                                        </div>
-
-                                        <div class="d-flex flex-wrap gap-2 mb-2">
-                                            <span class="badge text-bg-light">Sursă: {{ item.source or "-" }}</span>
-                                            <span class="badge text-bg-light">Brand: {{ item.brand or "-" }}</span>
-                                            <span class="badge text-bg-light">Familie: {{ item.model_family or "-" }}</span>
-                                            <span class="badge text-bg-light">RAM: {{ item.ram_gb or "-" }} GB</span>
-                                        </div>
-
-                                        <div class="d-flex flex-wrap gap-2">
-                                            {% if item.condition == "used" %}
-                                                <span class="badge badge-condition-used">Second-hand</span>
-                                            {% elif item.condition == "new" %}
-                                                <span class="badge badge-condition-new">Nou</span>
-                                            {% else %}
-                                                <span class="badge text-bg-secondary">Condiție necunoscută</span>
-                                            {% endif %}
-
-                                            {% if item.cpu %}
-                                                <span class="badge text-bg-light">CPU: {{ item.cpu }}</span>
-                                            {% endif %}
-
-                                            {% if item.storage %}
-                                                <span class="badge text-bg-light">Stocare: {{ item.storage }}</span>
-                                            {% endif %}
-
-                                            {% if item.gpu %}
-                                                <span class="badge text-bg-light">GPU: {{ item.gpu }}</span>
-                                            {% endif %}
                                         </div>
                                     </div>
-                                </div>
-                            {% endfor %}
+                                {% endfor %}
+                            </div>
                         </div>
-                    </div>
-                {% endif %}
+                    {% endif %}
                 {% else %}
                     <p class="text-muted mb-0">Completează formularul și apasă „Evaluează” pentru a vedea rezultatele.</p>
                 {% endif %}

@@ -30,8 +30,6 @@
                         {% set deal_badge_class = "badge-score-low" %}
                     {% endif %}
 
-                    {% set fav_key = (row.brand or "", row.model_family or "", row.ram_gb) %}
-
                     <div class="border rounded p-3 bg-white">
                         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
                             <div>
@@ -83,20 +81,16 @@
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
                             <div>
                                 {% if current_user.is_authenticated and current_user.is_buyer %}
-                                    {% if fav_key in favorite_keys %}
+                                    {% if row.id in favorite_listing_ids %}
                                         <span class="badge text-bg-success">Salvat la favorite</span>
-                                    {% elif row.brand %}
+                                    {% else %}
                                         <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <input type="hidden" name="brand" value="{{ row.brand }}">
-                                            <input type="hidden" name="model_family" value="{{ row.model_family or '' }}">
-                                            <input type="hidden" name="ram_gb" value="{{ row.ram_gb or '' }}">
+                                            <input type="hidden" name="listing_id" value="{{ row.id }}">
                                             <button type="submit" class="btn btn-sm btn-outline-primary">
                                                 Adaugă la favorite
                                             </button>
                                         </form>
-                                    {% else %}
-                                        <span class="text-muted small">Favorit indisponibil</span>
                                     {% endif %}
                                 {% endif %}
                             </div>

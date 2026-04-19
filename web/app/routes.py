@@ -25,7 +25,11 @@ from app.services import (
     add_favorite,
     remove_favorite,
     list_user_favorites,
-    build_favorite_keys,
+    build_favorite_listing_ids,
+    list_user_notifications,
+    count_unread_notifications,
+    mark_notification_as_read,
+    mark_all_notifications_as_read,
 )
 
 
@@ -43,6 +47,18 @@ def role_required(*allowed_roles):
             return view_func(*args, **kwargs)
         return wrapped_view
     return decorator
+
+
+@main_bp.app_context_processor
+def inject_notification_counts():
+    unread_notifications_count = 0
+
+    if current_user.is_authenticated and current_user.is_seller:
+        unread_notifications_count = count_unread_notifications(current_user.id)
+
+    return {
+        "unread_notifications_count": unread_notifications_count,
+    }
 
 
 def _to_int(value):
@@ -263,7 +279,7 @@ def index():
 
     if current_user.is_authenticated and current_user.is_buyer:
         buyer_overview = {
-            "message": "Poți analiza piața în Explore și salva favorite din anunțurile reale publicate în platformă.",
+            "message": "Poți analiza piața în Explore și salva anunțuri favorite din platformă.",
         }
 
     return render_template(
@@ -326,23 +342,19 @@ def favorites():
 @main_bp.route("/favorites/add", methods=["POST"])
 @role_required(User.ROLE_BUYER)
 def add_to_favorites():
-    brand = request.form.get("brand", "").strip()
-    model_family = request.form.get("model_family", "").strip()
-    ram_gb = request.form.get("ram_gb", "").strip()
+    listing_id = request.form.get("listing_id", "").strip()
 
     favorite, created = add_favorite(
         user_id=current_user.id,
-        brand=brand,
-        model_family=model_family or None,
-        ram_gb=ram_gb or None,
+        listing_id=listing_id,
     )
 
     if not favorite:
-        flash("Preferința nu a putut fi salvată. Verifică datele trimise.", "warning")
+        flash("Anunțul nu a putut fi salvat la favorite.", "warning")
     elif created:
-        flash("Categoria a fost adăugată la favorite.", "success")
+        flash("Anunțul a fost adăugat la favorite.", "success")
     else:
-        flash("Această categorie există deja la favorite.", "warning")
+        flash("Acest anunț există deja la favorite.", "warning")
 
     return redirect(url_for("main.listings"))
 
@@ -358,6 +370,39 @@ def remove_from_favorites(favorite_id):
         flash("Favoritul nu a putut fi șters.", "warning")
 
     return redirect(url_for("main.favorites"))
+
+
+@main_bp.route("/notifications")
+@role_required(User.ROLE_SELLER)
+def notifications():
+    rows = list_user_notifications(current_user.id, limit=100)
+    return render_template("notifications.html", rows=rows)
+
+
+@main_bp.route("/notifications/<int:notification_id>/read", methods=["POST"])
+@role_required(User.ROLE_SELLER)
+def mark_notification_read(notification_id):
+    ok = mark_notification_as_read(notification_id, current_user.id)
+
+    if ok:
+        flash("Notificarea a fost marcată ca citită.", "success")
+    else:
+        flash("Notificarea nu a putut fi actualizată.", "warning")
+
+    return redirect(url_for("main.notifications"))
+
+
+@main_bp.route("/notifications/read-all", methods=["POST"])
+@role_required(User.ROLE_SELLER)
+def mark_all_notifications_read_route():
+    count = mark_all_notifications_as_read(current_user.id)
+
+    if count > 0:
+        flash(f"Au fost marcate ca citite {count} notificări.", "success")
+    else:
+        flash("Nu există notificări necitite.", "info")
+
+    return redirect(url_for("main.notifications"))
 
 
 @main_bp.route("/publish/<token>", methods=["POST"])
@@ -500,11 +545,15 @@ def history():
 def listings():
     rows = list_recent_listings(limit=30)
 
-    favorite_keys = set()
+    favorite_listing_ids = set()
     if current_user.is_authenticated and current_user.is_buyer:
-        favorite_keys = build_favorite_keys(current_user.id)
+        favorite_listing_ids = build_favorite_listing_ids(current_user.id)
 
-    return render_template("listings.html", rows=rows, favorite_keys=favorite_keys)
+    return render_template(
+        "listings.html",
+        rows=rows,
+        favorite_listing_ids=favorite_listing_ids,
+    )
 
 
 @main_bp.route("/explore")

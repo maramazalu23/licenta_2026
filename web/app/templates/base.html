@@ -31,6 +31,12 @@
                         {% elif current_user.is_seller %}
                             <a class="nav-link" href="{{ url_for('main.profile') }}">Dashboard seller</a>
                             <a class="nav-link" href="{{ url_for('main.history') }}">Istoric</a>
+                            <a class="nav-link d-flex align-items-center gap-2" href="{{ url_for('main.notifications') }}">
+                                Notificări
+                                {% if unread_notifications_count > 0 %}
+                                    <span class="badge rounded-pill text-bg-danger">{{ unread_notifications_count }}</span>
+                                {% endif %}
+                            </a>
                         {% elif current_user.is_buyer %}
                             <a class="nav-link" href="{{ url_for('main.history') }}">Istoric</a>
                             <a class="nav-link" href="{{ url_for('main.favorites') }}">Favorite</a>

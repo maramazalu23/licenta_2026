@@ -7,7 +7,7 @@
     <div class="card-body">
         <h1 class="h4 mb-1">Favoritele mele</h1>
         <p class="text-muted mb-0">
-            Aici vezi categoriile salvate din anunțurile publicate în platformă.
+            Aici vezi anunțurile salvate la favorite din platformă.
         </p>
     </div>
 </div>
@@ -18,21 +18,32 @@
             <div class="d-flex flex-column gap-3">
                 {% for row in rows %}
                     <div class="border rounded p-3 bg-white">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                             <div>
-                                <div class="fw-semibold">{{ row.brand }}</div>
+                                <div class="fw-semibold">{{ row.title or "-" }}</div>
                                 <div class="text-muted small">
-                                    Familie: {{ row.model_family or "-" }} · RAM: {{ row.ram_gb or "-" }} GB
+                                    Brand: {{ row.brand or "-" }} · Familie: {{ row.model_family or "-" }} · RAM: {{ row.ram_gb or "-" }} GB
+                                </div>
+                                <div class="text-muted small">
+                                    Preț cerut: {{ row.price_asked|price }} · Preț recomandat: {{ row.recommended_price|price }}
                                 </div>
                                 <div class="text-muted small">
                                     Salvat la: {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
                                 </div>
                             </div>
 
-                            <form method="post" action="{{ url_for('main.remove_from_favorites', favorite_id=row.id) }}">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Șterge</button>
-                            </form>
+                            <div class="d-flex flex-column gap-2 align-items-end">
+                                {% if row.listing_id %}
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.listings') }}">
+                                        Vezi toate anunțurile
+                                    </a>
+                                {% endif %}
+
+                                <form method="post" action="{{ url_for('main.remove_from_favorites', favorite_id=row.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Șterge</button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 {% endfor %}

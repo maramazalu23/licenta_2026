@@ -85,8 +85,18 @@ class Listing(db.Model):
     condition = db.Column(db.String(50), nullable=True, index=True)
     description = db.Column(db.Text, nullable=True)
 
+    recommended_price = db.Column(db.Float, nullable=True)
+    deal_score = db.Column(db.Float, nullable=True)
+
     evaluation_token = db.Column(db.String(64), nullable=True, unique=True)
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
+
+    favorite_entries = db.relationship(
+        "Favorite",
+        backref="listing",
+        lazy=True,
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<Listing {self.title}>"
@@ -97,25 +107,20 @@ class Favorite(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-
-    brand = db.Column(db.String(100), nullable=False, index=True)
-    model_family = db.Column(db.String(100), nullable=True, index=True)
-    ram_gb = db.Column(db.Integer, nullable=True, index=True)
+    listing_id = db.Column(db.Integer, db.ForeignKey("listings.id"), nullable=False, index=True)
 
     created_at = db.Column(db.DateTime, default=utc_now, nullable=False)
 
     __table_args__ = (
         db.UniqueConstraint(
             "user_id",
-            "brand",
-            "model_family",
-            "ram_gb",
-            name="uq_favorite_user_segment",
+            "listing_id",
+            name="uq_favorite_user_listing",
         ),
     )
 
     def __repr__(self):
-        return f"<Favorite user={self.user_id} {self.brand}/{self.model_family}/{self.ram_gb}>"
+        return f"<Favorite user={self.user_id} listing={self.listing_id}>"
 
 
 class Notification(db.Model):

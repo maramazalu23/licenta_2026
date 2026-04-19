@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db
 from app.models import User
-from app.services import claim_evaluation_for_user
+from app.services import claim_evaluation_for_user, generate_seller_notifications_for_user
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -146,6 +146,9 @@ def register():
         if token:
             claim_evaluation_for_user(token, user.id)
 
+        if user.is_seller:
+            generate_seller_notifications_for_user(user.id)
+
         return redirect(_redirect_after_login(user, next_url))
 
     return render_template(
@@ -196,7 +199,9 @@ def login():
         if token:
             claim_evaluation_for_user(token, user.id)
 
-        # Aici vom putea adăuga mai târziu generarea notificărilor pentru seller.
+        if user.is_seller:
+            generate_seller_notifications_for_user(user.id)
+
         return redirect(_redirect_after_login(user, next_url))
 
     return render_template(

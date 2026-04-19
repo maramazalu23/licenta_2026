@@ -1,9 +1,14 @@
 import json
 import uuid
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 
 from app import db
-from app.models import EvaluationResult, Listing, User, Favorite
+from app.models import EvaluationResult, Listing, User, Favorite, Notification
+from app.db_market import get_explore_filters, get_price_stats
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
 
 
 def _normalize_text(value):
@@ -87,6 +92,42 @@ def _safe_datetime_end(value):
         return None
 
 
+def _extract_recommended_price(result_data, condition):
+    outputs = result_data.get("price_estimation", {}).get("outputs", {})
+
+    fair_price = outputs.get("fair_price")
+    fair_price_used = outputs.get("fair_price_used")
+    fair_price_new = outputs.get("fair_price_new")
+
+    if fair_price is not None:
+        return fair_price
+
+    if condition == "new" and fair_price_new is not None:
+        return fair_price_new
+
+    return fair_price_used
+
+
+def _extract_listing_metrics_from_saved(saved):
+    if not saved:
+        return None, None
+
+    input_data = saved.get("input", {})
+    result_data = saved.get("result", {})
+
+    recommended_price = _extract_recommended_price(
+        result_data,
+        input_data.get("condition"),
+    )
+    deal_score = (
+        result_data.get("price_estimation", {})
+        .get("outputs", {})
+        .get("deal_rating_score")
+    )
+
+    return recommended_price, deal_score
+
+
 def _row_to_evaluation_item(row):
     input_data = json.loads(row.input_json)
     result_data = json.loads(row.result_json)
@@ -118,7 +159,69 @@ def _row_to_evaluation_item(row):
             .get("score")
         ),
         "user_id": row.user_id,
-        "user_email": row.user.email if getattr(row, "user", None) else None,
+        "user_email": row.user.email if row.user is not None else None,
+    }
+
+
+def _segment_label(brand=None, model_family=None, ram_gb=None):
+    parts = []
+    if brand:
+        parts.append(str(brand))
+    if model_family:
+        parts.append(str(model_family))
+    if ram_gb:
+        parts.append(f"{ram_gb} GB RAM")
+    return " / ".join(parts) if parts else "segment necunoscut"
+
+
+def _market_median_for_listing(brand=None, model_family=None, ram_gb=None, condition=None):
+    stats = get_price_stats(
+        brand=brand,
+        ram_gb=ram_gb,
+        model_family=model_family,
+    )
+
+    if condition == "new":
+        median = (stats.get("new") or {}).get("median")
+        if median is not None:
+            return median
+        return (stats.get("used") or {}).get("median")
+
+    median = (stats.get("used") or {}).get("median")
+    if median is not None:
+        return median
+    return (stats.get("new") or {}).get("median")
+
+
+def _notification_to_item(row):
+    return {
+        "id": row.id,
+        "type": row.type,
+        "title": row.title,
+        "message": row.message,
+        "brand": row.brand,
+        "model_family": row.model_family,
+        "ram_gb": row.ram_gb,
+        "is_read": row.is_read,
+        "created_at": row.created_at,
+        "read_at": row.read_at,
+    }
+
+
+def _listing_to_favorite_item(row):
+    return {
+        "id": row.id,
+        "listing_id": row.listing_id,
+        "created_at": row.created_at,
+        "title": row.listing.title if row.listing else None,
+        "brand": row.listing.brand if row.listing else None,
+        "model_family": row.listing.model_family if row.listing else None,
+        "ram_gb": row.listing.ram_gb if row.listing else None,
+        "price_asked": row.listing.price_asked if row.listing else None,
+        "condition": row.listing.condition if row.listing else None,
+        "recommended_price": row.listing.recommended_price if row.listing else None,
+        "deal_score": row.listing.deal_score if row.listing else None,
+        "listing_created_at": row.listing.created_at if row.listing else None,
     }
 
 
@@ -196,22 +299,6 @@ def is_listing_published(token):
     return Listing.query.filter_by(evaluation_token=token).first() is not None
 
 
-def _extract_recommended_price(result_data, condition):
-    outputs = result_data.get("price_estimation", {}).get("outputs", {})
-
-    fair_price = outputs.get("fair_price")
-    fair_price_used = outputs.get("fair_price_used")
-    fair_price_new = outputs.get("fair_price_new")
-
-    if fair_price is not None:
-        return fair_price
-
-    if condition == "new" and fair_price_new is not None:
-        return fair_price_new
-
-    return fair_price_used
-
-
 def list_recent_evaluations(limit=20):
     rows = (
         EvaluationResult.query
@@ -241,7 +328,7 @@ def list_admin_evaluations(
     if dt_to is not None:
         query = query.filter(EvaluationResult.created_at <= dt_to)
 
-    rows = query.limit(limit).all()
+    rows = query.all()
 
     items = []
     brand_norm = _normalize_text(brand).lower()
@@ -261,30 +348,13 @@ def list_admin_evaluations(
 
         items.append(item)
 
-    return items
+    return items[:limit]
 
 
 def get_admin_history_filters():
-    rows = (
-        EvaluationResult.query
-        .order_by(EvaluationResult.created_at.desc())
-        .all()
-    )
-
-    brands = set()
-
-    for row in rows:
-        try:
-            input_data = json.loads(row.input_json)
-        except Exception:
-            continue
-
-        brand = _normalize_text(input_data.get("brand"))
-        if brand:
-            brands.add(brand)
-
+    market_filters = get_explore_filters()
     return {
-        "brands": sorted(brands),
+        "brands": market_filters.get("brands", []),
         "conditions": ["used", "new"],
     }
 
@@ -302,6 +372,7 @@ def create_listing_from_evaluation(token, user_id=None):
         return existing, True
 
     input_data = saved["input"]
+    recommended_price, deal_score = _extract_listing_metrics_from_saved(saved)
 
     listing = Listing(
         title=input_data.get("title") or "Anunț fără titlu",
@@ -311,6 +382,8 @@ def create_listing_from_evaluation(token, user_id=None):
         price_asked=_safe_float(input_data.get("price_asked")) or 0.0,
         condition=input_data.get("condition"),
         description=input_data.get("description"),
+        recommended_price=_safe_float(recommended_price),
+        deal_score=_safe_float(deal_score),
         evaluation_token=token,
         user_id=user_id,
     )
@@ -330,24 +403,6 @@ def list_recent_listings(limit=30):
 
     items = []
     for row in rows:
-        recommended_price = None
-        deal_score = None
-
-        if row.evaluation_token:
-            saved = get_evaluation_by_token(row.evaluation_token)
-            if saved:
-                input_data = saved.get("input", {})
-                result_data = saved.get("result", {})
-                recommended_price = _extract_recommended_price(
-                    result_data,
-                    input_data.get("condition"),
-                )
-                deal_score = (
-                    result_data.get("price_estimation", {})
-                    .get("outputs", {})
-                    .get("deal_rating_score")
-                )
-
         items.append({
             "id": row.id,
             "title": row.title,
@@ -359,8 +414,8 @@ def list_recent_listings(limit=30):
             "description": row.description,
             "evaluation_token": row.evaluation_token,
             "created_at": row.created_at,
-            "recommended_price": recommended_price,
-            "deal_score": deal_score,
+            "recommended_price": row.recommended_price,
+            "deal_score": row.deal_score,
         })
 
     return items
@@ -389,24 +444,6 @@ def list_user_listings(user_id, limit=20):
 
     items = []
     for row in rows:
-        recommended_price = None
-        deal_score = None
-
-        if row.evaluation_token:
-            saved = get_evaluation_by_token(row.evaluation_token)
-            if saved:
-                input_data = saved.get("input", {})
-                result_data = saved.get("result", {})
-                recommended_price = _extract_recommended_price(
-                    result_data,
-                    input_data.get("condition"),
-                )
-                deal_score = (
-                    result_data.get("price_estimation", {})
-                    .get("outputs", {})
-                    .get("deal_rating_score")
-                )
-
         items.append({
             "id": row.id,
             "title": row.title,
@@ -418,8 +455,8 @@ def list_user_listings(user_id, limit=20):
             "description": row.description,
             "evaluation_token": row.evaluation_token,
             "created_at": row.created_at,
-            "recommended_price": recommended_price,
-            "deal_score": deal_score,
+            "recommended_price": row.recommended_price,
+            "deal_score": row.deal_score,
         })
 
     return items
@@ -433,48 +470,24 @@ def list_user_favorites(user_id):
         .all()
     )
 
-    items = []
-    for row in rows:
-        items.append({
-            "id": row.id,
-            "brand": row.brand,
-            "model_family": row.model_family,
-            "ram_gb": row.ram_gb,
-            "created_at": row.created_at,
-        })
-
-    return items
+    return [_listing_to_favorite_item(row) for row in rows]
 
 
-def favorite_exists(user_id, brand, model_family=None, ram_gb=None):
-    return (
-        Favorite.query
-        .filter_by(
-            user_id=user_id,
-            brand=brand,
-            model_family=model_family,
-            ram_gb=ram_gb,
-        )
-        .first()
-        is not None
-    )
+def add_favorite(user_id, listing_id):
+    listing_id = _safe_int(listing_id)
 
+    if not user_id or not listing_id:
+        return None, False
 
-def add_favorite(user_id, brand, model_family=None, ram_gb=None):
-    brand = _normalize_text(brand)
-    model_family = _normalize_text(model_family) or None
-    ram_gb = _safe_int(ram_gb)
-
-    if not user_id or not brand:
+    listing = Listing.query.filter_by(id=listing_id).first()
+    if not listing:
         return None, False
 
     existing = (
         Favorite.query
         .filter_by(
             user_id=user_id,
-            brand=brand,
-            model_family=model_family,
-            ram_gb=ram_gb,
+            listing_id=listing_id,
         )
         .first()
     )
@@ -483,9 +496,7 @@ def add_favorite(user_id, brand, model_family=None, ram_gb=None):
 
     row = Favorite(
         user_id=user_id,
-        brand=brand,
-        model_family=model_family,
-        ram_gb=ram_gb,
+        listing_id=listing_id,
     )
     db.session.add(row)
     db.session.commit()
@@ -505,17 +516,188 @@ def remove_favorite(favorite_id, user_id):
     return True
 
 
-def build_favorite_keys(user_id):
+def build_favorite_listing_ids(user_id):
     rows = (
         Favorite.query
         .filter_by(user_id=user_id)
         .all()
     )
 
-    keys = set()
+    return {row.listing_id for row in rows}
+
+
+def generate_seller_notifications_for_user(user_id):
+    seller = User.query.filter_by(id=user_id, role=User.ROLE_SELLER).first()
+    if not seller:
+        return 0
+
+    listings = (
+        Listing.query
+        .filter_by(user_id=user_id)
+        .order_by(Listing.created_at.desc())
+        .all()
+    )
+
+    created_or_updated = 0
+    seen_segments = set()
+
+    for listing in listings:
+        segment_key = (listing.brand or "", listing.model_family or "", listing.ram_gb)
+        if segment_key in seen_segments:
+            continue
+        seen_segments.add(segment_key)
+
+        if not listing.brand:
+            continue
+
+        matching_listing_ids = {
+            row.id
+            for row in Listing.query.filter_by(
+                brand=listing.brand,
+                model_family=listing.model_family,
+                ram_gb=listing.ram_gb,
+            ).all()
+        }
+
+        if not matching_listing_ids:
+            continue
+
+        matching_favorites = (
+            Favorite.query
+            .filter(Favorite.listing_id.in_(matching_listing_ids))
+            .all()
+        )
+
+        buyer_ids = sorted({fav.user_id for fav in matching_favorites if fav.user_id != user_id})
+        buyers_count = len(buyer_ids)
+
+        if buyers_count <= 0:
+            continue
+
+        market_median = _market_median_for_listing(
+            brand=listing.brand,
+            model_family=listing.model_family,
+            ram_gb=listing.ram_gb,
+            condition=listing.condition,
+        )
+
+        segment_label = _segment_label(
+            brand=listing.brand,
+            model_family=listing.model_family,
+            ram_gb=listing.ram_gb,
+        )
+
+        title = f"Interes detectat pentru {segment_label}"
+
+        buyer_phrase = "cumpărător a" if buyers_count == 1 else "cumpărători au"
+
+        if market_median is not None:
+            message = (
+                f"{buyers_count} {buyer_phrase} salvat la favorite anunțuri din segmentul {segment_label}. "
+                f"Prețul median estimat din piață pentru acest segment este {market_median:.0f} RON."
+            )
+        else:
+            message = (
+                f"{buyers_count} {buyer_phrase} salvat la favorite anunțuri din segmentul {segment_label}. "
+                f"Nu există momentan o mediană de piață suficient de clară pentru acest segment."
+            )
+
+        latest = (
+            Notification.query
+            .filter_by(
+                user_id=user_id,
+                type="favorite_match",
+                brand=listing.brand,
+                model_family=listing.model_family,
+                ram_gb=listing.ram_gb,
+            )
+            .order_by(Notification.created_at.desc())
+            .first()
+        )
+
+        if latest and latest.message == message and latest.title == title:
+            continue
+
+        if latest and not latest.is_read:
+            latest.title = title
+            latest.message = message
+            latest.created_at = utc_now()
+            latest.read_at = None
+            created_or_updated += 1
+            continue
+
+        row = Notification(
+            user_id=user_id,
+            type="favorite_match",
+            title=title,
+            message=message,
+            brand=listing.brand,
+            model_family=listing.model_family,
+            ram_gb=listing.ram_gb,
+            is_read=False,
+        )
+        db.session.add(row)
+        created_or_updated += 1
+
+    if created_or_updated:
+        db.session.commit()
+
+    return created_or_updated
+
+
+def list_user_notifications(user_id, limit=50):
+    rows = (
+        Notification.query
+        .filter_by(user_id=user_id)
+        .order_by(Notification.is_read.asc(), Notification.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [_notification_to_item(row) for row in rows]
+
+
+def count_unread_notifications(user_id):
+    return (
+        Notification.query
+        .filter_by(user_id=user_id, is_read=False)
+        .count()
+    )
+
+
+def mark_notification_as_read(notification_id, user_id):
+    row = (
+        Notification.query
+        .filter_by(id=notification_id, user_id=user_id)
+        .first()
+    )
+    if not row:
+        return False
+
+    if not row.is_read:
+        row.is_read = True
+        row.read_at = utc_now()
+        db.session.commit()
+
+    return True
+
+
+def mark_all_notifications_as_read(user_id):
+    rows = (
+        Notification.query
+        .filter_by(user_id=user_id, is_read=False)
+        .all()
+    )
+
+    if not rows:
+        return 0
+
+    now = utc_now()
     for row in rows:
-        keys.add((row.brand or "", row.model_family or "", row.ram_gb))
-    return keys
+        row.is_read = True
+        row.read_at = now
+
+    db.session.commit()
+    return len(rows)
 
 
 def set_user_role(email, role):

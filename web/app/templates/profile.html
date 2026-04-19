@@ -1,26 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}
-    {% if current_user.is_seller %}
-        Dashboard seller
-    {% else %}
-        Profilul meu
-    {% endif %}
-{% endblock %}
+{% block title %}Dashboard seller{% endblock %}
 
 {% block content %}
 <div class="card shadow-sm mb-4">
     <div class="card-body">
-        {% if current_user.is_seller %}
-            <h1 class="h4 mb-1">Dashboard seller</h1>
-            <p class="text-muted mb-0">Aici vezi evaluările și anunțurile asociate contului tău de vânzător.</p>
-        {% elif current_user.is_buyer %}
-            <h1 class="h4 mb-1">Profilul meu</h1>
-            <p class="text-muted mb-0">Aici vezi activitatea asociată contului tău.</p>
-        {% else %}
-            <h1 class="h4 mb-1">Profil</h1>
-            <p class="text-muted mb-0">Aici vezi datele asociate contului tău.</p>
-        {% endif %}
+        <h1 class="h4 mb-1">Dashboard seller</h1>
+        <p class="text-muted mb-0">Aici vezi evaluările și anunțurile asociate contului tău de vânzător.</p>
     </div>
 </div>
 
@@ -97,13 +83,7 @@
     <div class="col-lg-6">
         <div class="card shadow-sm h-100">
             <div class="card-body">
-                <h2 class="h5 mb-3">
-                    {% if current_user.is_seller %}
-                        Anunțurile mele
-                    {% else %}
-                        Anunțuri asociate contului
-                    {% endif %}
-                </h2>
+                <h2 class="h5 mb-3">Anunțurile mele</h2>
 
                 {% if listings %}
                     <div class="d-flex flex-column gap-3">
@@ -153,11 +133,7 @@
                         {% endfor %}
                     </div>
                 {% else %}
-                    {% if current_user.is_seller %}
-                        <p class="text-muted mb-0">Nu ai încă anunțuri publicate.</p>
-                    {% else %}
-                        <p class="text-muted mb-0">Nu există încă anunțuri asociate contului tău.</p>
-                    {% endif %}
+                    <p class="text-muted mb-0">Nu ai încă anunțuri publicate.</p>
                 {% endif %}
             </div>
         </div>

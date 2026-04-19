@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Notificări{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h1 class="h4 mb-1">Notificările mele</h1>
+            <p class="text-muted mb-0">
+                Aici vezi alertele generate pe baza interesului buyerilor pentru segmente similare cu anunțurile tale.
+            </p>
+        </div>
+
+        {% if rows %}
+            <form method="post" action="{{ url_for('main.mark_all_notifications_read_route') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-primary">Marchează tot ca citit</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        {% if rows %}
+            <div class="d-flex flex-column gap-3">
+                {% for row in rows %}
+                    <div class="border rounded p-3 bg-white {% if not row.is_read %}border-primary{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                            <div>
+                                <div class="fw-semibold">{{ row.title }}</div>
+                                <div class="text-muted small">
+                                    {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                                </div>
+                            </div>
+
+                            <div>
+                                {% if row.is_read %}
+                                    <span class="badge text-bg-secondary">Citită</span>
+                                {% else %}
+                                    <span class="badge text-bg-primary">Necitită</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                            <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                            <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
+                        </div>
+
+                        <p class="mb-3">{{ row.message }}</p>
+
+                        {% if not row.is_read %}
+                            <form method="post" action="{{ url_for('main.mark_notification_read', notification_id=row.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Marchează ca citită</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">Nu există încă notificări pentru contul tău.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
