@@ -9,7 +9,7 @@
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-light bg-body-tertiary">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('main.index') }}">Licență 2026</a>
 
@@ -48,7 +48,7 @@
 
                         <form method="post" action="{{ url_for('auth.logout') }}" class="d-inline ms-lg-2">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-outline-light">Logout</button>
+                            <button type="submit" class="btn btn-sm btn-outline-success">Logout</button>
                         </form>
                     {% else %}
                         <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>

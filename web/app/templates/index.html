@@ -77,6 +77,98 @@
         </div>
     </div>
 
+{% if recommended_listings %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                <div>
+                    <h2 class="h5 mb-1">Sugestii pentru tine</h2>
+                    <p class="text-muted mb-0">
+                        Recomandări generate pe baza anunțurilor pe care le-ai salvat la favorite.
+                    </p>
+                </div>
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.listings') }}">
+                    Vezi toate anunțurile
+                </a>
+            </div>
+
+            <div class="row g-3">
+                {% for row in recommended_listings %}
+                    {% if row.deal_score is none %}
+                        {% set deal_badge_class = "badge-score-na" %}
+                    {% elif row.deal_score >= 85 %}
+                        {% set deal_badge_class = "badge-score-excellent" %}
+                    {% elif row.deal_score >= 65 %}
+                        {% set deal_badge_class = "badge-score-good" %}
+                    {% elif row.deal_score >= 45 %}
+                        {% set deal_badge_class = "badge-score-medium" %}
+                    {% else %}
+                        {% set deal_badge_class = "badge-score-low" %}
+                    {% endif %}
+
+                    <div class="col-md-6 col-xl-4">
+                        <div class="border rounded p-3 h-100 bg-white">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div class="fw-semibold">{{ row.title or "-" }}</div>
+                                <div class="text-end">
+                                    <div class="fw-semibold">{{ row.price_asked|price }}</div>
+                                    <small class="text-muted">Preț cerut</small>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                                <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                                <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                {% if row.condition == "used" %}
+                                    <span class="badge badge-condition-used">Second-hand</span>
+                                {% elif row.condition == "new" %}
+                                    <span class="badge badge-condition-new">Nou</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                {% endif %}
+
+                                <span class="badge text-bg-light">Preț recomandat: {{ row.recommended_price|price }}</span>
+
+                                {% if row.deal_score is not none %}
+                                    <span class="badge {{ deal_badge_class }}">Scor ofertă: {{ row.deal_score }}</span>
+                                {% else %}
+                                    <span class="badge badge-score-na">Scor ofertă: N/A</span>
+                                {% endif %}
+                            </div>
+
+                            {% if row.description %}
+                                <div class="small text-muted mb-3">
+                                    {{ row.description[:140] }}{% if row.description|length > 140 %}...{% endif %}
+                                </div>
+                            {% endif %}
+
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="listing_id" value="{{ row.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                                        Adaugă la favorite
+                                    </button>
+                                </form>
+
+                                {% if row.evaluation_token %}
+                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
+                                        Vezi evaluarea
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endif %}
+
     <div class="row g-3">
         <div class="col-md-3">
             <div class="card shadow-sm">

@@ -26,6 +26,7 @@ from app.services import (
     remove_favorite,
     list_user_favorites,
     build_favorite_listing_ids,
+    list_recommended_listings_for_buyer,
     list_user_notifications,
     count_unread_notifications,
     mark_notification_as_read,
@@ -264,6 +265,7 @@ def index():
 
     seller_overview = None
     buyer_overview = None
+    recommended_listings = []
 
     if current_user.is_authenticated and current_user.is_seller:
         seller_evaluations = list_user_evaluations(current_user.id, limit=20)
@@ -281,8 +283,15 @@ def index():
         }
 
     if current_user.is_authenticated and current_user.is_buyer:
+        recommended_listings = list_recommended_listings_for_buyer(current_user.id, limit=6)
+
+        if recommended_listings:
+            buyer_message = "Ți-am pregătit sugestii pe baza anunțurilor salvate la favorite."
+        else:
+            buyer_message = "Poți analiza piața în Explore și salva anunțuri favorite din platformă pentru a primi sugestii personalizate."
+
         buyer_overview = {
-            "message": "Poți analiza piața în Explore și salva anunțuri favorite din platformă.",
+            "message": buyer_message,
         }
 
     return render_template(
@@ -290,6 +299,7 @@ def index():
         summary=summary,
         seller_overview=seller_overview,
         buyer_overview=buyer_overview,
+        recommended_listings=recommended_listings,
     )
 
 

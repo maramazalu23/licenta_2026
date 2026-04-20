@@ -1,14 +1,11 @@
 import json
 import uuid
-from datetime import datetime, time, timezone
+from datetime import datetime, time
 
 from app import db
-from app.models import EvaluationResult, Listing, User, Favorite, Notification
+from app.models import EvaluationResult, Listing, User, Favorite, Notification, utc_now
+from sqlalchemy import or_
 from app.db_market import get_explore_filters, get_price_stats
-
-
-def utc_now():
-    return datetime.now(timezone.utc)
 
 
 def _normalize_text(value):
@@ -727,6 +724,107 @@ def generate_seller_notifications_for_user(user_id):
     return created_or_updated
 
 
+def list_recommended_listings_for_buyer(user_id, limit=6):
+    if not user_id:
+        return []
+
+    favorite_rows = (
+        Favorite.query
+        .filter_by(user_id=user_id)
+        .all()
+    )
+
+    if not favorite_rows:
+        return []
+
+    favorite_listing_ids = {row.listing_id for row in favorite_rows}
+
+    segment_scores = {}
+    for row in favorite_rows:
+        listing = row.listing
+        if not listing:
+            continue
+
+        key = (
+            (listing.brand or "").strip(),
+            (listing.model_family or "").strip(),
+            listing.ram_gb,
+        )
+
+        if not key[0]:
+            continue
+
+        segment_scores[key] = segment_scores.get(key, 0) + 1
+
+    if not segment_scores:
+        return []
+
+    candidate_scores = {}
+
+    for (brand, model_family, ram_gb), freq in segment_scores.items():
+        query = Listing.query.filter(Listing.id.notin_(favorite_listing_ids))
+
+        brand_match = Listing.brand == brand if brand else None
+        family_match = Listing.model_family == model_family if model_family else None
+        ram_match = Listing.ram_gb == ram_gb if ram_gb is not None else None
+
+        filters = [f for f in (brand_match, family_match, ram_match) if f is not None]
+        if not filters:
+            continue
+
+        query = query.filter(or_(*filters))
+        rows = query.order_by(Listing.created_at.desc()).limit(30).all()
+
+        for row in rows:
+            score = 0
+
+            if brand and row.brand == brand:
+                score += 3
+            if model_family and row.model_family == model_family:
+                score += 2
+            if ram_gb is not None and row.ram_gb == ram_gb:
+                score += 1
+
+            score *= freq
+
+            if score <= 0:
+                continue
+
+            current = candidate_scores.get(row.id)
+            if current is None or score > current["score"]:
+                candidate_scores[row.id] = {
+                    "score": score,
+                    "row": row,
+                }
+
+    ranked = sorted(
+        candidate_scores.values(),
+        key=lambda item: (item["score"], item["row"].created_at or utc_now()),
+        reverse=True,
+    )
+
+    items = []
+    for item in ranked[:limit]:
+        row = item["row"]
+        items.append({
+            "id": row.id,
+            "title": row.title,
+            "brand": row.brand,
+            "model_family": row.model_family,
+            "ram_gb": row.ram_gb,
+            "price_asked": row.price_asked,
+            "condition": row.condition,
+            "description": row.description,
+            "evaluation_token": row.evaluation_token,
+            "created_at": row.created_at,
+            "recommended_price": row.recommended_price,
+            "deal_score": row.deal_score,
+            "match_score": item["score"],
+        })
+
+    return items
+
+
 def list_user_notifications(user_id, limit=50):
     rows = (
         Notification.query
@@ -782,6 +880,7 @@ def mark_all_notifications_as_read(user_id):
     return len(rows)
 
 
+# utilitar administrativ pentru schimbarea rolurilor din shell / scripturi interne
 def set_user_role(email, role):
     email = (email or "").strip().lower()
     role = (role or "").strip().lower()
