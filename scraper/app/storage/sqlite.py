@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS scrape_runs (
   pages_requested INTEGER NOT NULL,
   listing_pages_ok INTEGER NOT NULL,
   detail_pages_ok INTEGER NOT NULL,
+  products_parsed_total INTEGER NOT NULL,
   products_parsed INTEGER NOT NULL,
   products_filtered INTEGER NOT NULL,
   products_upserted INTEGER NOT NULL,
@@ -214,6 +215,7 @@ class SqliteStore:
                 "pages_requested": "INTEGER",
                 "listing_pages_ok": "INTEGER",
                 "detail_pages_ok": "INTEGER",
+                "products_parsed_total": "INTEGER",
                 "products_parsed": "INTEGER",
                 "products_filtered": "INTEGER",
                 "products_upserted": "INTEGER",
@@ -410,10 +412,10 @@ class SqliteStore:
                 run_id, site_name, category,
                 started_at, finished_at, duration_s,
                 pages_requested, listing_pages_ok, detail_pages_ok,
-                products_parsed, products_filtered,
+                products_parsed_total, products_parsed, products_filtered,
                 products_upserted, products_inserted, products_updated,
                 errors
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     stats.scrape_run_id,
@@ -425,6 +427,7 @@ class SqliteStore:
                     int(stats.pages_requested),
                     int(stats.listing_pages_ok),
                     int(stats.detail_pages_ok),
+                    int(stats.products_parsed_total),
                     int(stats.products_parsed),
                     int(stats.products_filtered),
                     int(stats.products_upserted),

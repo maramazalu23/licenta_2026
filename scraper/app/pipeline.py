@@ -30,7 +30,7 @@ class RunStats:
     pages_requested: int
     started_at: str = ""
     finished_at: str = ""
-    duration_s: float = 0.0 # Nou
+    duration_s: float = 0.0 
     listing_pages_ok: int = 0
     detail_pages_ok: int = 0
     products_parsed_total: int = 0  # total produse pentru care am rulat parse_detail_page (înainte de filtru)
@@ -67,6 +67,7 @@ def run_scrape(
 
     seen_detail: set[str] = set()
     filtered_rows: list[tuple[str, str, str]] = []  # (reason, url, title)
+    stop_early = False
 
     for li, listing_url in enumerate(listing_urls, start=1):
         try:
@@ -94,9 +95,8 @@ def run_scrape(
                     continue
                 seen_detail.add(durl)
                 if max_products is not None and len(products) >= max_products:
-                    stats.duration_s = round(time.time() - start_time, 2)
-                    stats.finished_at = datetime.now(timezone.utc).isoformat()
-                    return products, stats
+                    stop_early = True
+                    break
 
                 try:
                     site.http.polite_sleep()
@@ -149,6 +149,9 @@ def run_scrape(
             stats.errors += 1
             logger.exception("!!! Critical Listing Error: %s: %s", type(e).__name__, e)
     
+        if stop_early:
+            break
+
     if filtered_rows:
         out = FILTERED_DIR / f"{site_name}_{run_id}_filtered.csv"
         with open(out, "w", encoding="utf-8") as f:

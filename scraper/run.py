@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-import sys # Adăugat pentru exit controlat
+import sys
 import os
 import logging
 
@@ -50,7 +50,7 @@ def main():
                 db_path=args.db,
             )
         elif args.site == "pcgarage":
-            # WARM-UP REQUEST (important pentru 403)
+            # Warm-up request pentru a inițializa sesiunea înainte de scraping pe PCGarage.
             try:
                 http.get("https://www.pcgarage.ro/")
             except Exception as e:

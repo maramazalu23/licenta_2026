@@ -316,7 +316,12 @@ class HttpClient:
 
         last_exc: Exception | None = None
 
-        for attempt in range(1, HTTP.max_retries + 1):
+        parts0 = urlsplit(url)
+        domain0 = self._normalize_domain(parts0.netloc)
+        policy0 = self._get_policy(domain0)
+        max_retries = int(policy0.get("max_retries", HTTP.max_retries))
+
+        for attempt in range(1, max_retries + 1):
             start = time.time()
 
             parts = urlsplit(url)
@@ -324,7 +329,6 @@ class HttpClient:
 
             policy = self._get_policy(domain)
 
-            max_retries = int(policy.get("max_retries", HTTP.max_retries))
             backoff_base = float(policy.get("backoff_base_s", HTTP.backoff_base_s))
             timeout_policy = policy.get("timeout_s", HTTP.timeout_s)
 

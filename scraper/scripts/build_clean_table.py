@@ -37,7 +37,19 @@ CREATE TABLE IF NOT EXISTS products_clean (
     posted_at_utc TEXT,
     scraped_at_utc TEXT,
 
-    scrape_run_id TEXT
+    scrape_run_id TEXT,
+
+    brand_norm TEXT,
+    model_norm TEXT,
+    title_norm TEXT,
+    model_family TEXT,
+    title_std TEXT,
+    cpu_guess TEXT,
+    ram_gb INTEGER,
+    storage_guess TEXT,
+    gpu_guess TEXT,
+    screen_in REAL,
+    is_laptop INTEGER
 );
 """
 
@@ -68,9 +80,7 @@ def main():
 
     cur.execute(CREATE_SQL)
 
-    # IMPORTANT:
-    # presupun că ai tabelul "products" cu coloane care corespund modelului Product.
-    # Dacă la tine se numește altfel (ex: product_snapshots), schimbă aici SELECT-ul.
+    # Construim products_clean pornind din tabelul brut products.
     rows = cur.execute("SELECT * FROM products").fetchall()
 
     upserts = 0
