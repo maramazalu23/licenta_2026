@@ -34,6 +34,9 @@ from app.services import (
     generate_seller_notifications_for_user,
     refresh_seller_notifications_for_listing_segment,
     can_user_publish_evaluation,
+    delete_listing,
+    get_admin_dashboard_metrics,
+    get_admin_analytics_data,
 )
 
 
@@ -88,6 +91,17 @@ def _clean_condition(value):
     return value if value in {"used", "new"} else "used"
 
 
+def _safe_next_url(value=None):
+    next_url = (value if value is not None else request.values.get("next", "")).strip()
+    if not next_url:
+        return None
+    if not next_url.startswith("/"):
+        return None
+    if next_url.startswith("//"):
+        return None
+    return next_url
+
+
 def _deal_label_ro(label):
     mapping = {
         "very_good": "Foarte avantajos",
@@ -136,12 +150,32 @@ def _score_badge_class(score):
     return "bg-danger"
 
 
+def _extract_allowed_families_for_brand(filters, brand):
+    if not brand:
+        return set()
+
+    brand = str(brand).strip()
+
+    brand_to_families = filters.get("brand_to_families")
+    if isinstance(brand_to_families, dict):
+        families = brand_to_families.get(brand, [])
+        return {str(x).strip() for x in families if str(x).strip()}
+
+    families_by_brand = filters.get("families_by_brand")
+    if isinstance(families_by_brand, dict):
+        families = families_by_brand.get(brand, [])
+        return {str(x).strip() for x in families if str(x).strip()}
+
+    return set()
+
+
 def _validate_form(form_data, filters):
     errors = {}
 
     allowed_brands = set(filters.get("brands", []))
     allowed_families = set(filters.get("families", []))
     allowed_ram = {str(x) for x in filters.get("ram_options", [])}
+    allowed_families_for_brand = _extract_allowed_families_for_brand(filters, form_data["brand"])
 
     if not form_data["title"]:
         errors["title"] = "Completează titlul anunțului."
@@ -151,8 +185,10 @@ def _validate_form(form_data, filters):
     elif form_data["brand"] not in allowed_brands:
         errors["brand"] = "Brand invalid."
 
-    if form_data["model_family"] and form_data["model_family"] not in allowed_families:
-        errors["model_family"] = "Familie de model invalidă."
+        if form_data["model_family"] and form_data["model_family"] not in allowed_families:
+            errors["model_family"] = "Familie de model invalidă."
+        elif form_data["model_family"] and allowed_families_for_brand and form_data["model_family"] not in allowed_families_for_brand:
+            errors["model_family"] = "Familia de model nu corespunde brandului selectat."
 
     if not form_data["ram_gb"]:
         errors["ram_gb"] = "Selectează cantitatea de RAM."
@@ -266,6 +302,7 @@ def index():
     seller_overview = None
     buyer_overview = None
     recommended_listings = []
+    favorite_listing_ids = set()
 
     if current_user.is_authenticated and current_user.is_seller:
         seller_evaluations = list_user_evaluations(current_user.id, limit=20)
@@ -284,7 +321,7 @@ def index():
 
     if current_user.is_authenticated and current_user.is_buyer:
         recommended_listings = list_recommended_listings_for_buyer(current_user.id, limit=6)
-        favorite_listing_ids = build_favorite_listing_ids(current_user.id)  # ← adaugă asta
+        favorite_listing_ids = build_favorite_listing_ids(current_user.id)
 
         if recommended_listings:
             buyer_message = "Ți-am pregătit sugestii pe baza anunțurilor salvate la favorite."
@@ -317,6 +354,19 @@ def admin_dashboard():
         summary=summary,
         recent_evaluations=recent_evaluations,
         recent_listings=recent_listings,
+    )
+
+
+@main_bp.route("/admin/analytics")
+@role_required(User.ROLE_ADMIN)
+def admin_analytics():
+    dashboard = get_admin_dashboard_metrics()
+    charts = get_admin_analytics_data()
+
+    return render_template(
+        "admin_analytics.html",
+        dashboard=dashboard,
+        charts=charts,
     )
 
 
@@ -358,7 +408,7 @@ def favorites():
 @role_required(User.ROLE_BUYER)
 def add_to_favorites():
     listing_id = request.form.get("listing_id", "").strip()
-    next_url = request.form.get("next", "").strip()
+    next_url = _safe_next_url(request.form.get("next", ""))
 
     favorite, created = add_favorite(
         user_id=current_user.id,
@@ -457,6 +507,29 @@ def publish_listing(token):
         flash("Anunțul a fost publicat cu succes în platformă.", "success")
 
     return redirect(url_for("main.listings"))
+
+
+@main_bp.route("/listings/<int:listing_id>/delete", methods=["POST"])
+@role_required(User.ROLE_SELLER, User.ROLE_ADMIN)
+def delete_listing_route(listing_id):
+    ok, error_code = delete_listing(
+        listing_id=listing_id,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+    )
+
+    if error_code == "forbidden":
+        abort(403)
+
+    if error_code == "not_found":
+        abort(404)
+
+    if not ok:
+        flash("Anunțul nu a putut fi șters.", "warning")
+    else:
+        flash("Anunțul a fost șters cu succes.", "success")
+
+    return redirect(request.referrer or url_for("main.listings"))
 
 
 @main_bp.route("/evaluate", methods=["GET", "POST"])
@@ -587,6 +660,9 @@ def result_page(token):
 @main_bp.route("/history")
 @role_required(User.ROLE_SELLER, User.ROLE_BUYER, User.ROLE_ADMIN)
 def history():
+    if current_user.is_admin:
+        return redirect(url_for("main.admin_history"))
+
     rows = list_user_evaluations(current_user.id, limit=30)
     return render_template("history.html", rows=rows)
 

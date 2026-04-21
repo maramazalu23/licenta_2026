@@ -190,11 +190,14 @@ def login():
         user = None
         if not errors:
             user = User.query.filter_by(email=email).first()
-            if not user or not check_password_hash(user.password_hash, password):
-                errors["general"] = "Email sau parolă incorecte."
+
+            if not user:
+                errors["email"] = "Nu există niciun cont cu această adresă de email."
+            elif not check_password_hash(user.password_hash, password):
+                errors["password"] = "Parola introdusă este incorectă."
 
         if errors:
-            flash("Autentificarea a eșuat. Verifică datele introduse.", "warning")
+            flash("Autentificarea a eșuat.", "warning")
             return render_template(
                 "login.html",
                 form_data=form_data,

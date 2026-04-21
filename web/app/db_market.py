@@ -498,12 +498,34 @@ def get_explore_filters() -> Dict[str, List[Any]]:
         ORDER BY source
     """, base_params)
 
+    family_rows = _fetch_all(f"""
+        SELECT DISTINCT brand_norm, model_family
+        FROM products_clean
+        WHERE {where_sql}
+          AND brand_norm IS NOT NULL
+          AND TRIM(brand_norm) != ''
+          AND model_family IS NOT NULL
+          AND TRIM(model_family) != ''
+        ORDER BY brand_norm, model_family
+    """, base_params)
+
+    brand_to_families = {}
+    for row in family_rows:
+        brand = row.get("brand_norm")
+        family = row.get("model_family")
+
+        if not brand or not family:
+            continue
+
+        brand_to_families.setdefault(brand, []).append(family)
+
     return {
         "brands": [r["brand_norm"] for r in brands],
         "families": [r["model_family"] for r in families],
         "ram_options": [_normalize_int(r["ram_gb"]) for r in rams if r.get("ram_gb") is not None],
         "conditions": ["new", "used"],
         "sources": [r["source"] for r in sources],
+        "brand_to_families": brand_to_families,
     }
 
 
@@ -600,3 +622,25 @@ if __name__ == "__main__":
     print(f"count={sample['count']}")
     for item in sample["products"]:
         print(item)
+
+
+def get_market_condition_distribution() -> Dict[str, Any]:
+    clauses, params = _base_visibility_clauses()
+
+    query = f"""
+        SELECT
+            SUM(CASE WHEN condition_norm = 'used' THEN 1 ELSE 0 END) AS used_count,
+            SUM(CASE WHEN condition_norm = 'new' THEN 1 ELSE 0 END) AS new_count
+        FROM products_clean
+        WHERE {' AND '.join(clauses)}
+    """
+
+    row = _fetch_one(query, params) or {}
+
+    return {
+        "labels": ["Second-hand", "Nou"],
+        "values": [
+            row.get("used_count", 0) or 0,
+            row.get("new_count", 0) or 0,
+        ],
+    }

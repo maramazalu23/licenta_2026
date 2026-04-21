@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Licență 2026{% endblock %}</title>
+    <title>{% block title %}IT Resell{% endblock %} — Sistem informatic pentru revânzarea produselor IT</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
@@ -11,7 +11,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-body-tertiary">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">Licență 2026</a>
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">IT Resell</a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
                 <span class="navbar-toggler-icon"></span>
@@ -27,6 +27,7 @@
                     {% if current_user.is_authenticated %}
                         {% if current_user.is_admin %}
                             <a class="nav-link" href="{{ url_for('main.admin_dashboard') }}">Dashboard admin</a>
+                            <a class="nav-link" href="{{ url_for('main.admin_analytics') }}">Analiză date</a>
                             <a class="nav-link" href="{{ url_for('main.admin_history') }}">Istoric global</a>
                         {% elif current_user.is_seller %}
                             <a class="nav-link" href="{{ url_for('main.profile') }}">Dashboard seller</a>

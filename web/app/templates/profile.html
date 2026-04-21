@@ -119,7 +119,7 @@
                                         {% endif %}
                                     </div>
 
-                                    <div>
+                                    <div class="d-flex flex-wrap gap-2 justify-content-end">
                                         {% if row.evaluation_token %}
                                             <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
                                                 Vezi evaluarea
@@ -127,6 +127,17 @@
                                         {% else %}
                                             <span class="text-muted small">Fără evaluare</span>
                                         {% endif %}
+
+                                        <form method="post" action="{{ url_for('main.delete_listing_route', listing_id=row.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button
+                                                type="submit"
+                                                class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Sigur vrei să ștergi acest anunț?');"
+                                            >
+                                                Șterge
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </div>

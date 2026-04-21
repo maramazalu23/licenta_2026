@@ -42,9 +42,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Familie model</label>
+                        <label class="form-label">Familie model <span class="text-muted fw-normal small">(opțional)</span></label>
                         <select name="model_family" class="form-select {% if errors.model_family %}is-invalid{% endif %}">
-                            <option value="">-- alege familia --</option>
+                            <option value="">-- alege familia (opțional) --</option>
                             {% for family in filters.families %}
                                 <option value="{{ family }}" {% if form_data.model_family == family %}selected{% endif %}>{{ family }}</option>
                             {% endfor %}
@@ -120,6 +120,14 @@
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-success btn-sm">Publică anunțul în platformă</button>
                                 </form>
+                            {% elif not current_user.is_authenticated %}
+                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-outline-success btn-sm">
+                                    Autentifică-te pentru a publica anunțul
+                                </a>
+                            {% elif current_user.is_authenticated and current_user.is_buyer %}
+                                <div class="text-muted small">
+                                    Conturile de tip buyer nu pot publica anunțuri.
+                                </div>
                             {% elif current_user.is_authenticated and current_user.is_seller and publish_block_reason == "forbidden" %}
                                 <div class="alert alert-warning mb-0">
                                     Poți publica în platformă doar evaluările create din contul tău.

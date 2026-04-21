@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}Analiză date{% endblock %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h1 class="h4 mb-1">Analiză date platformă</h1>
+        <p class="text-muted mb-0">
+            Vizualizare agregată a activității utilizatorilor, evaluărilor și anunțurilor publicate.
+        </p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Utilizatori</div>
+                <div class="fs-3 fw-bold">{{ dashboard.users_total }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Evaluări</div>
+                <div class="fs-3 fw-bold">{{ dashboard.evaluations_total }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Anunțuri publicate</div>
+                <div class="fs-3 fw-bold">{{ dashboard.listings_total }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="text-muted small">Favorite</div>
+                <div class="fs-3 fw-bold">{{ dashboard.favorites_total }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    {# 1. Trend evaluări — linie, full width #}
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Evoluția evaluărilor în ultimele 30 de zile</h2>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="evaluationsPerDayChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 2. Evaluări pe brand + 3. Utilizatori pe roluri #}
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Distribuția evaluărilor pe brand</h2>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="evaluationsPerBrandChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Distribuția utilizatorilor pe roluri</h2>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="usersByRoleChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 4. Prețuri cerute vs recomandate — full width #}
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Preț cerut vs. preț recomandat pe brand (medie, RON)</h2>
+                <div style="position: relative; height: 320px;">
+                    <canvas id="priceComparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 5. Condiție platformă + 6. Condiție piață externă #}
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Condiția anunțurilor din platformă</h2>
+                <div style="position: relative; height: 280px;">
+                    <canvas id="platformConditionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Condiția produselor din piața externă (scraper)</h2>
+                <div style="position: relative; height: 280px;">
+                    <canvas id="marketConditionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script id="analytics-data" type="application/json">
+    {{ charts | tojson | safe }}
+</script>
+
+<script>
+    const analyticsData = JSON.parse(
+        document.getElementById("analytics-data").textContent
+    );
+
+    // Paleta de culori consistentă
+    const COLORS = {
+        blue:       "rgba(59, 130, 246, 0.85)",
+        blueLight:  "rgba(59, 130, 246, 0.25)",
+        green:      "rgba(34, 197, 94, 0.85)",
+        orange:     "rgba(249, 115, 22, 0.85)",
+        purple:     "rgba(168, 85, 247, 0.85)",
+        red:        "rgba(239, 68, 68, 0.85)",
+        yellow:     "rgba(234, 179, 8, 0.85)",
+        teal:       "rgba(20, 184, 166, 0.85)",
+        pink:       "rgba(236, 72, 153, 0.85)",
+        indigo:     "rgba(99, 102, 241, 0.85)",
+    };
+    const PALETTE = Object.values(COLORS);
+
+    // 1. Trend evaluări pe zi
+    new Chart(document.getElementById("evaluationsPerDayChart"), {
+        type: "line",
+        data: {
+            labels: analyticsData.evaluations_per_day.labels,
+            datasets: [{
+                label: "Evaluări",
+                data: analyticsData.evaluations_per_day.values,
+                borderColor: COLORS.blue,
+                backgroundColor: COLORS.blueLight,
+                borderWidth: 2,
+                pointRadius: 3,
+                tension: 0.3,
+                fill: true,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { mode: "index", intersect: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0 },
+                    title: { display: true, text: "Număr evaluări" }
+                },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 10,
+                        maxRotation: 45,
+                    }
+                }
+            }
+        }
+    });
+
+    // 2. Evaluări pe brand
+    new Chart(document.getElementById("evaluationsPerBrandChart"), {
+        type: "bar",
+        data: {
+            labels: analyticsData.evaluations_per_brand.labels,
+            datasets: [{
+                label: "Număr evaluări",
+                data: analyticsData.evaluations_per_brand.values,
+                backgroundColor: PALETTE.slice(0, analyticsData.evaluations_per_brand.labels.length),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1, precision: 0 },
+                    title: { display: true, text: "Evaluări" }
+                }
+            }
+        }
+    });
+
+    // 3. Utilizatori pe roluri
+    new Chart(document.getElementById("usersByRoleChart"), {
+        type: "doughnut",
+        data: {
+            labels: analyticsData.users_by_role.labels,
+            datasets: [{
+                data: analyticsData.users_by_role.values,
+                backgroundColor: [COLORS.blue, COLORS.green, COLORS.orange],
+                borderWidth: 2,
+                borderColor: "#fff",
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: "bottom" }
+            }
+        }
+    });
+
+    // 4. Prețuri cerute vs recomandate pe brand (grouped bar)
+    new Chart(document.getElementById("priceComparisonChart"), {
+        type: "bar",
+        data: {
+            labels: analyticsData.price_comparison_per_brand.labels,
+            datasets: [
+                {
+                    label: "Preț cerut mediu (RON)",
+                    data: analyticsData.price_comparison_per_brand.asked_values,
+                    backgroundColor: COLORS.blue,
+                    borderRadius: 4,
+                },
+                {
+                    label: "Preț recomandat mediu (RON)",
+                    data: analyticsData.price_comparison_per_brand.recommended_values,
+                    backgroundColor: COLORS.green,
+                    borderRadius: 4,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: "bottom" },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const val = ctx.parsed.y;
+                            if (val === null || val === undefined) return ctx.dataset.label + ": N/A";
+                            return ctx.dataset.label + ": " + val.toLocaleString("ro-RO") + " RON";
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: "RON" },
+                    ticks: {
+                        callback: function(val) {
+                            return val.toLocaleString("ro-RO");
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 5. Condiție platformă
+    new Chart(document.getElementById("platformConditionChart"), {
+        type: "doughnut",
+        data: {
+            labels: analyticsData.condition_distribution_platform.labels,
+            datasets: [{
+                data: analyticsData.condition_distribution_platform.values,
+                backgroundColor: [COLORS.orange, COLORS.teal],
+                borderWidth: 2,
+                borderColor: "#fff",
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: "bottom" },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                            return ctx.label + ": " + ctx.parsed + " (" + pct + "%)";
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 6. Condiție piață externă
+    new Chart(document.getElementById("marketConditionChart"), {
+        type: "doughnut",
+        data: {
+            labels: analyticsData.condition_distribution_market.labels,
+            datasets: [{
+                data: analyticsData.condition_distribution_market.values,
+                backgroundColor: [COLORS.orange, COLORS.teal],
+                borderWidth: 2,
+                borderColor: "#fff",
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: "bottom" },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                            return ctx.label + ": " + ctx.parsed + " (" + pct + "%)";
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
