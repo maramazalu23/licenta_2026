@@ -4,7 +4,7 @@ from datetime import datetime, time
 
 from app import db
 from app.models import EvaluationResult, Listing, User, Favorite, Notification, utc_now
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from app.db_market import get_explore_filters, get_price_stats
 
 
@@ -762,40 +762,71 @@ def list_recommended_listings_for_buyer(user_id, limit=6):
     candidate_scores = {}
 
     for (brand, model_family, ram_gb), freq in segment_scores.items():
-        query = Listing.query.filter(Listing.id.notin_(favorite_listing_ids))
+        base_query = Listing.query.filter(Listing.id.notin_(favorite_listing_ids))
 
-        brand_match = Listing.brand == brand if brand else None
-        family_match = Listing.model_family == model_family if model_family else None
-        ram_match = Listing.ram_gb == ram_gb if ram_gb is not None else None
+        priority_filters = []
 
-        filters = [f for f in (brand_match, family_match, ram_match) if f is not None]
-        if not filters:
-            continue
+        if brand and model_family and ram_gb is not None:
+            priority_filters.append((
+                4,
+                and_(
+                    Listing.brand == brand,
+                    Listing.model_family == model_family,
+                    Listing.ram_gb == ram_gb,
+                )
+            ))
 
-        query = query.filter(or_(*filters))
-        rows = query.order_by(Listing.created_at.desc()).limit(30).all()
+        if brand and model_family:
+            priority_filters.append((
+                3,
+                and_(
+                    Listing.brand == brand,
+                    Listing.model_family == model_family,
+                )
+            ))
 
-        for row in rows:
-            score = 0
+        if brand and ram_gb is not None:
+            priority_filters.append((
+                2,
+                and_(
+                    Listing.brand == brand,
+                    Listing.ram_gb == ram_gb,
+                )
+            ))
 
-            if brand and row.brand == brand:
-                score += 3
-            if model_family and row.model_family == model_family:
-                score += 2
-            if ram_gb is not None and row.ram_gb == ram_gb:
-                score += 1
+        if brand:
+            priority_filters.append((
+                1,
+                Listing.brand == brand
+            ))
 
-            score *= freq
+        for priority, filter_expr in priority_filters:
+            rows = (
+                base_query
+                .filter(filter_expr)
+                .order_by(Listing.created_at.desc())
+                .limit(30)
+                .all()
+            )
 
-            if score <= 0:
-                continue
+            for row in rows:
+                score = priority * 10
 
-            current = candidate_scores.get(row.id)
-            if current is None or score > current["score"]:
-                candidate_scores[row.id] = {
-                    "score": score,
-                    "row": row,
-                }
+                if brand and row.brand == brand:
+                    score += 3
+                if model_family and row.model_family == model_family:
+                    score += 2
+                if ram_gb is not None and row.ram_gb == ram_gb:
+                    score += 1
+
+                score *= freq
+
+                current = candidate_scores.get(row.id)
+                if current is None or score > current["score"]:
+                    candidate_scores[row.id] = {
+                        "score": score,
+                        "row": row,
+                    }
 
     ranked = sorted(
         candidate_scores.values(),

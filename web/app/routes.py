@@ -284,6 +284,7 @@ def index():
 
     if current_user.is_authenticated and current_user.is_buyer:
         recommended_listings = list_recommended_listings_for_buyer(current_user.id, limit=6)
+        favorite_listing_ids = build_favorite_listing_ids(current_user.id)  # ← adaugă asta
 
         if recommended_listings:
             buyer_message = "Ți-am pregătit sugestii pe baza anunțurilor salvate la favorite."
@@ -300,6 +301,7 @@ def index():
         seller_overview=seller_overview,
         buyer_overview=buyer_overview,
         recommended_listings=recommended_listings,
+        favorite_listing_ids=favorite_listing_ids,
     )
 
 
@@ -356,6 +358,7 @@ def favorites():
 @role_required(User.ROLE_BUYER)
 def add_to_favorites():
     listing_id = request.form.get("listing_id", "").strip()
+    next_url = request.form.get("next", "").strip()
 
     favorite, created = add_favorite(
         user_id=current_user.id,
@@ -370,7 +373,10 @@ def add_to_favorites():
     else:
         flash("Acest anunț există deja la favorite.", "warning")
 
-    return redirect(url_for("main.listings"))
+    if next_url:
+        return redirect(next_url)
+
+    return redirect(request.referrer or url_for("main.listings"))
 
 
 @main_bp.route("/favorites/<int:favorite_id>/remove", methods=["POST"])
