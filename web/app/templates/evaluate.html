@@ -218,14 +218,28 @@
                             {% endif %}
 
                             <div class="kv-item">
-                                <strong>Nivel fallback:</strong>
-                                {{ result.price_estimation.segment.source_level }}
+                                <strong>Nivel segment:</strong>
+                                {% set sl = result.price_estimation.segment.source_level %}
+                                {% if sl == 'brand+ram+family' %}Brand + RAM + Familie
+                                {% elif sl == 'brand+ram' %}Brand + RAM
+                                {% elif sl == 'brand+family' %}Brand + Familie
+                                {% elif sl == 'brand' %}Brand (general)
+                                {% elif sl == 'ram' %}RAM (general)
+                                {% elif sl == 'no_match' %}Fără comparabile suficiente
+                                {% else %}{{ sl }}{% endif %}
                             </div>
 
                             <div class="highlight-box mt-2">
                                 <strong>Explicație:</strong>
                                 {{ result.price_estimation.explanations.deal }}
                             </div>
+                            {% if result.price_estimation.segment.source_level == 'no_match' %}
+                                <div class="alert alert-warning mt-2 mb-0">
+                                    <strong>Date insuficiente pentru acest segment.</strong>
+                                    Nu am găsit suficiente anunțuri comparabile în baza de date pentru a estima prețul de piață.
+                                    Încearcă să completezi brandul sau RAM-ul pentru un rezultat mai precis.
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
 
