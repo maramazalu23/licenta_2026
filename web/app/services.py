@@ -984,6 +984,7 @@ def delete_listing(listing_id, user_id=None, is_admin=False):
     segment_brand = row.brand
     segment_family = row.model_family
     segment_ram = row.ram_gb
+    deleted_listing_owner_id = row.user_id
 
     db.session.delete(row)
     db.session.commit()
@@ -994,11 +995,16 @@ def delete_listing(listing_id, user_id=None, is_admin=False):
             model_family=segment_family,
             ram_gb=segment_ram,
         ).all()
+
         seller_ids = {
             r.user_id
             for r in affected
             if r.user_id and r.user and r.user.is_seller
         }
+
+        if deleted_listing_owner_id:
+            seller_ids.add(deleted_listing_owner_id)
+
         for sid in seller_ids:
             generate_seller_notifications_for_user(sid)
 

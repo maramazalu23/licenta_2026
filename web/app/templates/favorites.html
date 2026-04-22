@@ -4,11 +4,17 @@
 
 {% block content %}
 <div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <h1 class="h4 mb-1">Favoritele mele</h1>
-        <p class="text-muted mb-0">
-            Aici vezi anunțurile salvate la favorite din platformă.
-        </p>
+    <div class="card-body d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div>
+            <h1 class="h4 mb-1">Favoritele mele</h1>
+            <p class="text-muted mb-0">
+                Aici vezi anunțurile salvate la favorite din platformă.
+            </p>
+        </div>
+
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.listings') }}">
+            Vezi toate anunțurile
+        </a>
     </div>
 </div>
 
@@ -33,12 +39,6 @@
                             </div>
 
                             <div class="d-flex flex-column gap-2 align-items-end">
-                                {% if row.listing_id %}
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.listings') }}">
-                                        Vezi toate anunțurile
-                                    </a>
-                                {% endif %}
-
                                 <form method="post" action="{{ url_for('main.remove_from_favorites', favorite_id=row.id) }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">Șterge</button>

@@ -39,8 +39,8 @@ def compute_attractiveness_score(
     price_asked: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Scor euristic 0-100 pentru calitatea / atractivitatea anuntului.
-    Nu masoara pretul de piata in sine, ci calitatea informatiilor oferite.
+    Scor euristic 0-100 pentru calitatea / atractivitatea anunțului.
+    Nu măsoară prețul de piața în sine, ci calitatea informațiilor oferite.
     """
 
     title = _clean_str(title)
@@ -142,22 +142,22 @@ def compute_attractiveness_score(
 
     if final_score >= 85:
         label = "excellent"
-        explanation = "Anuntul este bine completat si ofera suficiente informatii pentru evaluare."
+        explanation = "Anunțul este bine completat și oferă suficiente informații pentru evaluare."
     elif final_score >= 70:
         label = "good"
-        explanation = "Anuntul este destul de clar, dar mai poate fi imbunatatit."
+        explanation = "Anunțul este destul de clar, dar mai poate fi îmbunătățit."
     elif final_score >= 50:
         label = "average"
-        explanation = "Anuntul contine doar o parte din informatiile utile."
+        explanation = "Anunțul conține doar o parte din informațiile utile."
     else:
         label = "weak"
-        explanation = "Anuntul este prea sarac in detalii si ar trebui completat."
+        explanation = "Anunțul este prea sărac în detalii și ar trebui completat."
 
     recommendations = []
     if details["title"]["status"] in {"missing", "weak"}:
-        recommendations.append("Adauga un titlu mai clar si mai descriptiv.")
+        recommendations.append("Adaugă un titlu mai clar și mai descriptiv.")
     if details["description"]["status"] in {"missing", "very_short", "weak"}:
-        recommendations.append("Completeaza descrierea cu specificatii si stare de utilizare.")
+        recommendations.append("Completează descrierea cu specificații și stare de utilizare.")
     if details["brand"]["status"] == "missing":
         recommendations.append("Specifică brandul produsului.")
     if details["ram_gb"]["status"] == "missing":
@@ -165,9 +165,9 @@ def compute_attractiveness_score(
     if details["condition"]["status"] == "missing":
         recommendations.append("Specifică starea produsului.")
     if details["price_asked"]["status"] == "missing":
-        recommendations.append("Introdu pretul cerut.")
+        recommendations.append("Introdu prețul cerut.")
     if details["description_keywords"]["status"] == "weak":
-        recommendations.append("Include mai multe detalii tehnice in descriere.")
+        recommendations.append("Include mai multe detalii tehnice în descriere.")
 
     return {
         "score": final_score,

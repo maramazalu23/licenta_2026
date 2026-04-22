@@ -143,7 +143,7 @@
 
                 {% if result %}
                     {% set selected_condition = result.price_estimation.outputs.selected_condition or form_data.condition or 'used' %}
-                    {% set fair_price_value = result.price_estimation.outputs.fair_price if result.price_estimation.outputs.fair_price is not none else result.price_estimation.outputs.fair_price_used %}
+                    {% set fair_price_value = result.price_estimation.outputs.fair_price %}
                     {% set fair_price_label = 'Preț corect SH' if selected_condition == 'used' else 'Preț corect nou' %}
 
                     <div class="row g-3 mb-4">

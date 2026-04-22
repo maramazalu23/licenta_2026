@@ -185,9 +185,10 @@ def _validate_form(form_data, filters):
     elif form_data["brand"] not in allowed_brands:
         errors["brand"] = "Brand invalid."
 
-        if form_data["model_family"] and form_data["model_family"] not in allowed_families:
+    if form_data["model_family"]:
+        if form_data["model_family"] not in allowed_families:
             errors["model_family"] = "Familie de model invalidă."
-        elif form_data["model_family"] and allowed_families_for_brand and form_data["model_family"] not in allowed_families_for_brand:
+        elif allowed_families_for_brand and form_data["model_family"] not in allowed_families_for_brand:
             errors["model_family"] = "Familia de model nu corespunde brandului selectat."
 
     if not form_data["ram_gb"]:
