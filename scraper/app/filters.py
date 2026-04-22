@@ -47,6 +47,21 @@ HARD_BAN_STRICT = [
     "tester auto", "op com",
     "wireless card", "wirelles card",
     "memorie usb", "stick usb",
+    "dezmembrare", "dezmembrez", "dezmembrari", "dezmembrări",
+    "piese", "piesa", "piesa", "componenta", "componentă",
+    "placa video", "placă video",
+    "rama display", "ramă display",
+    "cablu display", "panglica", "panglică", "invertor",
+    "mufa alimentare", "mufă alimentare",
+    "dock", "statie de andocare", "stație de andocare",
+    "port replicator", "replicator port",
+    "suport hdd", "caddy",
+    "stand laptop", "suport laptop", "cooling pad",
+    "geanta laptop", "geantă laptop", "rucsac laptop",
+    "carcasa laptop", "carcasă laptop",
+    "display laptop", "ecran laptop",
+    "incarcator laptop", "încărcător laptop", "alimentator laptop",
+    "tastatura laptop", "tastatură laptop",
 ]
 
 # 2) Soft component words:
@@ -87,6 +102,15 @@ DEFECT_PHRASES = [
     "fara incarcator", "fără încărcător",
     "placa video defecta", "placa de baza defecta", "placa bază defectă",
     "dezmembrez", "dezmembrari", "dezmembrări",
+    "dezmembrare", "dezmembrare laptop",
+    "pentru dezmembrare", "la dezmembrare",
+    "numai piese", "doar piese",
+    "fara hdd", "fără hdd",
+    "fara ssd", "fără ssd",
+    "fara ram", "fără ram",
+    "fara display", "fără display",
+    "fara ecran", "fără ecran",
+    "fara tastatura", "fără tastatură",
 ]
 
 DEFECT_WORDS = [
@@ -181,9 +205,9 @@ def explain_publi24_laptop_filter(title: str | None, desc: str | None, url: str 
     # 4) daca titlul contine doar componente si nu are semnal suficient de laptop, reject
     has_soft_component_in_title = _contains_any_word(t, SOFT_COMPONENT_WORDS)
     strong_laptop_signal = (
-        has_laptop_word
-        or has_allow_kw
+        has_allow_kw
         or (has_brand and has_tech_specs)
+        or (has_laptop_word and has_brand and has_tech_specs)
     )
 
     if has_soft_component_in_title and not strong_laptop_signal:
@@ -194,8 +218,8 @@ def explain_publi24_laptop_filter(title: str | None, desc: str | None, url: str 
 
     # 5) scoring pozitiv
     if has_laptop_word:
-        score += 4
-        reasons.append("laptop_kw(+4)")
+        score += 3
+        reasons.append("laptop_kw(+3)")
     elif has_allow_kw:
         score += 3
         reasons.append("allow_kw(+3)")
