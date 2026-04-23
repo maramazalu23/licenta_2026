@@ -3,7 +3,63 @@
 {% block title %}Acasă{% endblock %}
 
 {% block content %}
-{% if current_user.is_authenticated and current_user.is_seller %}
+{% if current_user.is_authenticated and current_user.is_admin %}
+    <div class="p-4 p-md-5 mb-4 bg-light rounded-3">
+        <div class="container-fluid py-2">
+            <h1 class="display-6 fw-bold">Bine ai venit în zona de administrare</h1>
+            <p class="col-md-9 fs-5 mb-0">
+                De aici poți accesa rapid funcțiile administrative ale platformei și indicatorii generali.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Utilizatori</h6>
+                    <div class="fs-3 fw-bold">{{ admin_overview.users_total if admin_overview else 0 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Evaluări</h6>
+                    <div class="fs-3 fw-bold">{{ admin_overview.evaluations_total if admin_overview else 0 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Anunțuri publicate</h6>
+                    <div class="fs-3 fw-bold">{{ admin_overview.listings_total if admin_overview else 0 }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted">Favorite</h6>
+                    <div class="fs-3 fw-bold">{{ admin_overview.favorites_total if admin_overview else 0 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Acces rapid</h2>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-primary" href="{{ url_for('main.admin_dashboard') }}">Dashboard admin</a>
+                <a class="btn btn-outline-primary" href="{{ url_for('main.admin_analytics') }}">Analiză date</a>
+                <a class="btn btn-outline-secondary" href="{{ url_for('main.admin_history') }}">Istoric global</a>
+            </div>
+        </div>
+    </div>
+
+{% elif current_user.is_authenticated and current_user.is_seller %}
     <div class="p-4 p-md-5 mb-4 bg-light rounded-3">
         <div class="container-fluid py-2">
             <h1 class="display-6 fw-bold">Bine ai revenit în dashboard-ul de seller</h1>

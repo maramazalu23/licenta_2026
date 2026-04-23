@@ -295,15 +295,16 @@ def _decorate_result_for_ui(result):
 
 @main_bp.route("/")
 def index():
-    if current_user.is_authenticated and current_user.is_admin:
-        return redirect(url_for("main.admin_dashboard"))
-
     summary = get_market_summary()
 
     seller_overview = None
     buyer_overview = None
+    admin_overview = None
     recommended_listings = []
     favorite_listing_ids = set()
+
+    if current_user.is_authenticated and current_user.is_admin:
+        admin_overview = get_admin_dashboard_metrics()
 
     if current_user.is_authenticated and current_user.is_seller:
         seller_evaluations = list_user_evaluations(current_user.id, limit=20)
@@ -338,6 +339,7 @@ def index():
         summary=summary,
         seller_overview=seller_overview,
         buyer_overview=buyer_overview,
+        admin_overview=admin_overview,
         recommended_listings=recommended_listings,
         favorite_listing_ids=favorite_listing_ids,
     )
