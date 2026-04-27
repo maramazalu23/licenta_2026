@@ -84,6 +84,7 @@ class Listing(db.Model):
     price_asked = db.Column(db.Float, nullable=False)
     condition = db.Column(db.String(50), nullable=True, index=True)
     description = db.Column(db.Text, nullable=True)
+    image_filename = db.Column(db.String(255), nullable=True)
 
     recommended_price = db.Column(db.Float, nullable=True)
     deal_score = db.Column(db.Float, nullable=True)

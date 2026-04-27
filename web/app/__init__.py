@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -57,13 +55,7 @@ def create_app():
     from app.auth import auth_bp
     app.register_blueprint(auth_bp)
 
-    from app import models  # noqa: F401
-
     with app.app_context():
-        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
-        if db_uri.startswith("sqlite:///"):
-            db_path = Path(db_uri.replace("sqlite:///", "", 1))
-            if not db_path.exists():
-                db.create_all()
+        db.create_all()
 
     return app

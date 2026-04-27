@@ -36,6 +36,9 @@ BAD_TITLE_TOKENS = [
     "laptop de vânzare",
     "laptop si",
     "laptop și",
+    "memorie laptop",
+    "memorie ram laptop",
+    "ventilator laptop",
 ]
 
 BAD_TITLE_EQUALS = [

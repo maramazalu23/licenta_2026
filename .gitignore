@@ -9,15 +9,43 @@ __pycache__/
 env/
 venv/
 
-# Database and Data
-*.db
-data_out/
-debug/
+# Python / pytest cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
 logs/
+*.log
+scraper/logs/
+
+# SQLite temporary files
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Browser / scraper runtime cache
+scraper/data_out/browser_profile/
+
+# Scraper generated exports
+scraper/data_out/exports/
+scraper/data_out/filtered/
+
+# Optional: keep products.db for demo
+# If you do NOT want to upload the market database, uncomment:
+# scraper/data_out/products.db
+
+# Optional: keep web.db for demo users/listings
+# If you do NOT want to upload the Flask app database, uncomment:
+# web/web.db
+
+# Uploaded listing images
+web/app/static/uploads/listings/
 
 # IDEs
 .vscode/
 .idea/
 
-# Testing (dacă vrei să ignori folderul de teste pe GitHub)
-# tests/
+# OS files
+.DS_Store
+Thumbs.db

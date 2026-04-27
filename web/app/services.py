@@ -1,11 +1,14 @@
 import json
 import uuid
-from datetime import datetime, time
+from pathlib import Path
+from datetime import datetime, time, timedelta
+
+from flask import current_app
 
 from app import db
 from app.models import EvaluationResult, Listing, User, Favorite, Notification, utc_now
 from sqlalchemy import and_, or_, func
-from app.db_market import get_explore_filters, get_price_stats
+from app.db_market import get_explore_filters, get_price_stats, get_market_condition_distribution
 
 
 def _normalize_text(value):
@@ -219,6 +222,7 @@ def _listing_to_favorite_item(row):
         "recommended_price": row.listing.recommended_price if row.listing else None,
         "deal_score": row.listing.deal_score if row.listing else None,
         "listing_created_at": row.listing.created_at if row.listing else None,
+        "image_filename": row.listing.image_filename if row.listing else None,
     }
 
 
@@ -407,7 +411,7 @@ def get_admin_history_filters():
     }
 
 
-def create_listing_from_evaluation(token, user_id=None, is_admin=False):
+def create_listing_from_evaluation(token, user_id=None, is_admin=False, image_filename=None):
     if not token or not user_id:
         return None, False, "invalid"
 
@@ -445,6 +449,7 @@ def create_listing_from_evaluation(token, user_id=None, is_admin=False):
         price_asked=_safe_float(input_data.get("price_asked")) or 0.0,
         condition=_normalize_condition(input_data.get("condition")),
         description=input_data.get("description"),
+        image_filename=image_filename,
         recommended_price=_safe_float(recommended_price),
         deal_score=_safe_float(deal_score),
         evaluation_token=token,
@@ -508,6 +513,7 @@ def list_recent_listings(limit=30):
             "price_asked": row.price_asked,
             "condition": row.condition,
             "description": row.description,
+            "image_filename": row.image_filename,
             "evaluation_token": row.evaluation_token,
             "created_at": row.created_at,
             "recommended_price": row.recommended_price,
@@ -549,6 +555,7 @@ def list_user_listings(user_id, limit=20):
             "price_asked": row.price_asked,
             "condition": row.condition,
             "description": row.description,
+            "image_filename": row.image_filename,
             "evaluation_token": row.evaluation_token,
             "created_at": row.created_at,
             "recommended_price": row.recommended_price,
@@ -881,6 +888,7 @@ def list_recommended_listings_for_buyer(user_id, limit=6):
             "price_asked": row.price_asked,
             "condition": row.condition,
             "description": row.description,
+            "image_filename": row.image_filename,
             "evaluation_token": row.evaluation_token,
             "created_at": row.created_at,
             "recommended_price": row.recommended_price,
@@ -966,6 +974,21 @@ def set_user_role(email, role):
     return user, True
 
 
+def _delete_listing_image_file(image_filename):
+    if not image_filename:
+        return
+
+    try:
+        upload_folder = Path(current_app.config["UPLOAD_FOLDER"])
+        image_path = upload_folder / image_filename
+
+        if image_path.exists() and image_path.is_file():
+            image_path.unlink()
+    except Exception:
+        # Nu blocăm ștergerea anunțului dacă fișierul nu poate fi șters.
+        pass
+
+
 def delete_listing(listing_id, user_id=None, is_admin=False):
     listing_id = _safe_int(listing_id)
     user_id = _safe_int(user_id)
@@ -985,10 +1008,13 @@ def delete_listing(listing_id, user_id=None, is_admin=False):
     segment_family = row.model_family
     segment_ram = row.ram_gb
     deleted_listing_owner_id = row.user_id
+    image_filename = row.image_filename
 
     db.session.delete(row)
     db.session.commit()
 
+    _delete_listing_image_file(image_filename)
+    
     if segment_brand:
         affected = Listing.query.filter_by(
             brand=segment_brand,
@@ -1025,8 +1051,6 @@ def get_admin_dashboard_metrics():
 
 
 def _get_evaluations_per_day(days=30):
-    from datetime import timedelta
-
     rows = (
         db.session.query(
             func.date(EvaluationResult.created_at).label("day"),
@@ -1160,8 +1184,6 @@ def _get_users_by_role():
 
 
 def get_admin_analytics_data():
-    from app.db_market import get_market_condition_distribution
-
     return {
         "evaluations_per_day": _get_evaluations_per_day(days=30),
         "evaluations_per_brand": _get_evaluations_per_brand(limit=10),

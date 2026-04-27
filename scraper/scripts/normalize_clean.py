@@ -79,7 +79,12 @@ NON_LAPTOP_KEYWORDS = [
     "trackpad", "touchpad",
     "balama", "hinge",
     "dezmembrez", "pentru piese", "pt piese",
+    "memorie laptop",
+    "memorie ram laptop",
+    "ventilator laptop",
 ]
+
+MIN_PUBLI24_PRICE_RON = 300
 
 PCG_MODEL_RE = re.compile(r"/notebook-laptop/[^/]+/(?P<slug>[^/]+)/?$", re.I)
 
@@ -328,7 +333,7 @@ def extract(text: str, regex: re.Pattern) -> str | None:
     return m.group(0).strip() if m else None
 
 
-def _is_laptop(source: str, title: str, desc: str) -> int:
+def _is_laptop(source: str, title: str, desc: str, price_ron: float | None = None) -> int:
     src = (source or "").lower()
     if src == "pcgarage":
         return 1
@@ -336,19 +341,42 @@ def _is_laptop(source: str, title: str, desc: str) -> int:
     t = (title or "").lower()
     d = (desc or "").lower()
 
-    # 1) în titlu: semnale clare de non-laptop
+    # Caz special: titluri de piese de răcire, de forma
+    # "radiator cooler laptop DELL", "radiator racire laptop HP" etc.
+    cooling_words = ["radiator", "cooler", "culer", "ventilator"]
+    laptop_words = ["laptop", "notebook"]
+
+    if any(w in t for w in cooling_words) and any(w in t for w in laptop_words):
+        return 0
+
+    # 1) Prag minim doar pentru Publi24.
+    # Sub 300 RON apar frecvent piese, accesorii sau produse defecte.
+    if src == "publi24" and price_ron is not None:
+        try:
+            if float(price_ron) < MIN_PUBLI24_PRICE_RON:
+                return 0
+        except (TypeError, ValueError):
+            pass
+
+    # 2) Semnale clare de piesă/accesoriu în titlu.
     if any(k in t for k in NON_LAPTOP_KEYWORDS):
         return 0
 
-    # 2) device-uri clar non-laptop (în titlu sau descriere)
-    explicit_non_laptop = ["iphone", "telefon", "tablet", "tableta", "tabletă", "mac studio", "surface pro"]
+    # 3) Device-uri clar non-laptop.
+    explicit_non_laptop = [
+        "iphone", "telefon", "smartphone",
+        "tablet", "tableta", "tabletă",
+        "mac studio", "surface pro",
+        "chromebox", "mini pc",
+        "cuptor microunde", "cuptoare microunde",
+    ]
+
     if any(k in t for k in explicit_non_laptop):
         return 0
+
     if any(k in d for k in ["mac studio", "surface pro", "chromebox", "mini pc"]):
         return 0
-    
-    # 3) pentru Publi24, dacă a trecut filtrul inițial, îl tratăm ca laptop;
-    # nu mai penalizăm descrierea completă pentru cuvinte precum "încărcător" / "baterie"
+
     return 1
 
 
@@ -543,6 +571,7 @@ def main():
             pc.source,
             pc.url,
             pc.title_clean,
+            pc.price_ron,
             pc.brand_guess,
             pc.model_guess,
             pc.condition_norm,
@@ -572,7 +601,8 @@ def main():
                 specs = None
 
         t_norm = normalize_title(title)
-        is_laptop = _is_laptop(source, title, desc)
+        price_ron = r["price_ron"]
+        is_laptop = _is_laptop(source, title, desc, price_ron)
 
         b = norm_brand(raw_brand or "")
         if not b:

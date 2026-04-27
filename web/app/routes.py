@@ -1,7 +1,9 @@
 from functools import wraps
+from uuid import uuid4
 
-from flask import Blueprint, render_template, request, redirect, url_for, abort, flash
+from flask import Blueprint, render_template, request, redirect, url_for, abort, flash, current_app
 from flask_login import current_user, login_required
+from werkzeug.utils import secure_filename
 
 from app.models import User
 from app.scoring.service import evaluate_listing
@@ -41,6 +43,34 @@ from app.services import (
 
 
 main_bp = Blueprint("main", __name__)
+
+
+ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+
+
+def _allowed_image_file(filename):
+    if not filename or "." not in filename:
+        return False
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext in ALLOWED_IMAGE_EXTENSIONS
+
+
+def _save_listing_image(file_storage):
+    if not file_storage or not file_storage.filename:
+        return None, None
+
+    if not _allowed_image_file(file_storage.filename):
+        return None, "invalid_extension"
+
+    upload_folder = current_app.config["UPLOAD_FOLDER"]
+    upload_folder.mkdir(parents=True, exist_ok=True)
+
+    original_name = secure_filename(file_storage.filename)
+    ext = original_name.rsplit(".", 1)[1].lower()
+    filename = f"{uuid4().hex}.{ext}"
+
+    file_storage.save(upload_folder / filename)
+    return filename, None
 
 
 def role_required(*allowed_roles):
@@ -487,10 +517,18 @@ def mark_all_notifications_read_route():
 @main_bp.route("/publish/<token>", methods=["POST"])
 @role_required(User.ROLE_SELLER, User.ROLE_ADMIN)
 def publish_listing(token):
+    image_file = request.files.get("listing_image")
+    image_filename, image_error = _save_listing_image(image_file)
+
+    if image_error == "invalid_extension":
+        flash("Imaginea trebuie să fie în format JPG, JPEG, PNG sau WEBP.", "warning")
+        return redirect(url_for("main.result_page", token=token))
+
     listing, already_exists, error_code = create_listing_from_evaluation(
         token,
         user_id=current_user.id,
         is_admin=current_user.is_admin,
+        image_filename=image_filename,
     )
 
     if error_code == "forbidden":
@@ -503,6 +541,15 @@ def publish_listing(token):
         abort(404)
 
     if already_exists:
+        if image_filename:
+            try:
+                upload_folder = current_app.config["UPLOAD_FOLDER"]
+                image_path = upload_folder / image_filename
+                if image_path.exists() and image_path.is_file():
+                    image_path.unlink()
+            except Exception:
+                pass
+
         flash("Anunțul a fost deja publicat în platformă.", "warning")
     else:
         if listing.user and listing.user.is_seller:

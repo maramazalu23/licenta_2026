@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-import secrets
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -17,14 +16,12 @@ PRODUCTS_DB_PATH = ROOT_DIR / "scraper" / "data_out" / "products.db"
 class Config:
     DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
 
-    SECRET_KEY = os.environ.get("SECRET_KEY")
-    if not SECRET_KEY:
-        if DEBUG:
-            SECRET_KEY = "dev-secret-key-local-only"
-        else:
-            SECRET_KEY = secrets.token_hex(32)
+    SECRET_KEY = os.environ.get("SECRET_KEY", "licenta-dev-secret-key")
 
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{WEB_DB_PATH}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     PRODUCTS_DB_PATH = PRODUCTS_DB_PATH
+
+    UPLOAD_FOLDER = APP_DIR / "static" / "uploads" / "listings"
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024

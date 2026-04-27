@@ -116,8 +116,17 @@
                                     </div>
                                 </div>
                             {% elif current_user.is_authenticated and (current_user.is_seller or current_user.is_admin) and can_publish %}
-                                <form method="post" action="{{ url_for('main.publish_listing', token=saved_token) }}">
+                                <form method="post" action="{{ url_for('main.publish_listing', token=saved_token) }}" enctype="multipart/form-data">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                    <div class="mb-2">
+                                        <label class="form-label small mb-1">Poză produs</label>
+                                        <input type="file" name="listing_image" class="form-control form-control-sm" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                                        <div class="form-text">
+                                            Opțional. Formate acceptate: JPG, PNG, WEBP. Dimensiune maximă: 5 MB.
+                                        </div>
+                                    </div>
+
                                     <button type="submit" class="btn btn-success btn-sm">Publică anunțul în platformă</button>
                                 </form>
                             {% elif not current_user.is_authenticated %}
