@@ -3,118 +3,291 @@
 {% block title %}Dashboard admin{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <h1 class="h4 mb-1">Dashboard admin</h1>
-        <p class="text-muted mb-0">
-            Panou de control pentru activitatea globală a platformei.
-        </p>
-    </div>
-</div>
+{% set eval_stats = namespace(excellent=0, good=0) %}
+{% for row in recent_evaluations %}
+    {% if row.deal_score is not none and row.deal_score >= 85 %}
+        {% set eval_stats.excellent = eval_stats.excellent + 1 %}
+    {% elif row.deal_score is not none and row.deal_score >= 65 %}
+        {% set eval_stats.good = eval_stats.good + 1 %}
+    {% endif %}
+{% endfor %}
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted">Produse analizate</h6>
-                <div class="fs-3 fw-bold">{{ summary.total_products }}</div>
-            </div>
+<div class="admin-dashboard-hero">
+    <div class="admin-dashboard-hero__main">
+        <div class="admin-dashboard-hero__icon">
+            <i class="bi bi-shield-check"></i>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted">Second-hand</h6>
-                <div class="fs-3 fw-bold">{{ summary.used_count }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted">Produse noi</h6>
-                <div class="fs-3 fw-bold">{{ summary.new_count }}</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h6 class="text-muted">Branduri distincte</h6>
-                <div class="fs-3 fw-bold">{{ summary.distinct_brands }}</div>
-            </div>
+
+        <div>
+            <h1>Dashboard admin</h1>
+            <p>
+                Monitorizează activitatea platformei, urmărește evaluările și anunțurile recente și accesează rapid zonele administrative.
+            </p>
         </div>
     </div>
 </div>
 
-<div class="row g-4">
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2 class="h5 mb-0">Evaluări recente</h2>
-                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.admin_history') }}">Vezi tot</a>
-                </div>
+<div class="admin-metrics-grid">
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--blue">
+                <i class="bi bi-box-seam"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ summary.total_products }}</div>
+        <div class="admin-metric-card__label">Produse analizate</div>
+    </div>
 
-                {% if recent_evaluations %}
-                    <div class="d-flex flex-column gap-3">
-                        {% for row in recent_evaluations %}
-                            <div class="border rounded p-3 bg-white">
-                                <div class="fw-semibold">{{ row.title or "-" }}</div>
-                                <div class="text-muted small mb-2">
-                                    {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
-                                </div>
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--green">
+                <i class="bi bi-recycle"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ summary.used_count }}</div>
+        <div class="admin-metric-card__label">Produse second-hand</div>
+    </div>
 
-                                <div class="d-flex flex-wrap gap-2 mb-2">
-                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
-                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
-                                </div>
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--purple">
+                <i class="bi bi-bag-check"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ summary.new_count }}</div>
+        <div class="admin-metric-card__label">Produse noi</div>
+    </div>
 
-                                <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('main.result_page', token=row.token) }}">
-                                    Vezi evaluarea
-                                </a>
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--orange">
+                <i class="bi bi-award"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ summary.distinct_brands }}</div>
+        <div class="admin-metric-card__label">Branduri distincte</div>
+    </div>
+
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--pink">
+                <i class="bi bi-clipboard-data"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ recent_evaluations|length }}</div>
+        <div class="admin-metric-card__label">Evaluări recente</div>
+    </div>
+
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--indigo">
+                <i class="bi bi-megaphone"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ recent_listings|length }}</div>
+        <div class="admin-metric-card__label">Anunțuri recente</div>
+    </div>
+
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--heart">
+                <i class="bi bi-check2-circle"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ eval_stats.excellent }}</div>
+        <div class="admin-metric-card__label">Oferte excelente recente</div>
+    </div>
+
+    <div class="admin-metric-card">
+        <div class="admin-metric-card__top">
+            <div class="admin-metric-card__icon admin-metric-card__icon--yellow">
+                <i class="bi bi-star"></i>
+            </div>
+        </div>
+        <div class="admin-metric-card__value">{{ eval_stats.good }}</div>
+        <div class="admin-metric-card__label">Oferte bune recente</div>
+    </div>
+</div>
+
+<div class="admin-dashboard-grid">
+    <section class="admin-panel">
+        <div class="admin-panel__header">
+            <div>
+                <h2>Evaluări recente</h2>
+                <p>Ultimele evaluări efectuate în platformă</p>
+            </div>
+            <a href="{{ url_for('main.admin_history') }}" class="admin-panel-link">
+                Vezi toate
+                <i class="bi bi-arrow-right"></i>
+            </a>
+        </div>
+
+        {% if recent_evaluations %}
+            <div class="admin-evaluation-list">
+                {% for row in recent_evaluations[:5] %}
+                    {% if row.deal_score is none %}
+                        {% set deal_badge_class = "badge-score-na" %}
+                    {% elif row.deal_score >= 85 %}
+                        {% set deal_badge_class = "badge-score-excellent" %}
+                    {% elif row.deal_score >= 65 %}
+                        {% set deal_badge_class = "badge-score-good" %}
+                    {% elif row.deal_score >= 45 %}
+                        {% set deal_badge_class = "badge-score-medium" %}
+                    {% else %}
+                        {% set deal_badge_class = "badge-score-low" %}
+                    {% endif %}
+
+                    <article class="admin-eval-row">
+                        <div class="admin-avatar">
+                            {{ (row.user_email or row.brand or row.title or 'A')[:1]|upper }}
+                        </div>
+
+                        <div class="admin-row-main">
+                            <a href="{{ url_for('main.result_page', token=row.token) }}" class="admin-row-title">
+                                {{ row.title or "-" }}
+                            </a>
+                            <div class="admin-row-meta">
+                                {{ row.user_email or "utilizator necunoscut" }}
+                                <span>•</span>
+                                {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
                             </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-muted mb-0">Nu există încă evaluări.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-6">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h2 class="h5 mb-3">Anunțuri recente</h2>
-
-                {% if recent_listings %}
-                    <div class="d-flex flex-column gap-3">
-                        {% for row in recent_listings %}
-                            <div class="border rounded p-3 bg-white">
-                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <div class="fw-semibold">{{ row.title or "-" }}</div>
-                                        <div class="text-muted small">
-                                            {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
-                                        </div>
-                                    </div>
-                                    <div class="fw-semibold">{{ row.price_asked|price }}</div>
-                                </div>
-
-                                <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
-                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
-                                    <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
-                                </div>
+                            <div class="admin-row-tags">
+                                <span class="badge text-bg-light">{{ row.brand or "-" }}</span>
+                                <span class="badge text-bg-light">{{ row.model_family or "-" }}</span>
+                                {% if row.condition == "used" %}
+                                    <span class="badge badge-condition-used">Second-hand</span>
+                                {% elif row.condition == "new" %}
+                                    <span class="badge badge-condition-new">Nou</span>
+                                {% endif %}
                             </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="text-muted mb-0">Nu există încă anunțuri.</p>
-                {% endif %}
+                        </div>
+
+                        <div class="admin-row-score">
+                            {% if row.deal_score is not none %}
+                                <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}/100</span>
+                            {% else %}
+                                <span class="badge badge-score-na">N/A</span>
+                            {% endif %}
+                            <strong>{{ row.recommended_price|price }}</strong>
+                        </div>
+                    </article>
+                {% endfor %}
             </div>
+        {% else %}
+            <div class="admin-empty-box">
+                <i class="bi bi-clipboard-x"></i>
+                <p>Nu există încă evaluări.</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="admin-panel">
+        <div class="admin-panel__header">
+            <div>
+                <h2>Anunțuri recente</h2>
+                <p>Ultimele listări publicate de selleri</p>
+            </div>
+            <a href="{{ url_for('main.listings') }}" class="admin-panel-link">
+                Vezi toate
+                <i class="bi bi-arrow-right"></i>
+            </a>
         </div>
-    </div>
+
+        {% if recent_listings %}
+            <div class="admin-listing-list">
+                {% for row in recent_listings[:5] %}
+                    <article class="admin-listing-row">
+                        <div class="admin-listing-media">
+                            {% if row.image_filename %}
+                                <img
+                                    src="{{ url_for('static', filename='uploads/listings/' ~ row.image_filename) }}"
+                                    alt="Poză produs"
+                                >
+                            {% else %}
+                                <div class="admin-listing-placeholder">
+                                    <i class="bi bi-laptop"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="admin-row-main">
+                            <div class="admin-row-title">
+                                {{ row.title or "-" }}
+                            </div>
+                            <div class="admin-row-meta">
+                                Publicat {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                            </div>
+                            <div class="admin-row-tags">
+                                {% if row.condition == "used" %}
+                                    <span class="badge badge-condition-used">Second-hand</span>
+                                {% elif row.condition == "new" %}
+                                    <span class="badge badge-condition-new">Nou</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                {% endif %}
+                                <span class="badge text-bg-light">{{ row.brand or "-" }}</span>
+                                <span class="badge text-bg-light">{{ row.ram_gb or "-" }} GB</span>
+                            </div>
+                        </div>
+
+                        <div class="admin-listing-price">
+                            {{ row.price_asked|price }}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="admin-empty-box">
+                <i class="bi bi-megaphone"></i>
+                <p>Nu există încă anunțuri.</p>
+            </div>
+        {% endif %}
+    </section>
 </div>
+
+<section class="admin-actions-card">
+    <h2>Acțiuni rapide</h2>
+
+    <div class="admin-actions-grid">
+        <a href="{{ url_for('main.admin_history') }}" class="admin-action-item admin-action-item--blue">
+            <div class="admin-action-icon">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+                <h3>Istoric global</h3>
+                <p>Consultă toate evaluările salvate</p>
+            </div>
+        </a>
+
+        <a href="{{ url_for('main.admin_analytics') }}" class="admin-action-item admin-action-item--purple">
+            <div class="admin-action-icon">
+                <i class="bi bi-bar-chart"></i>
+            </div>
+            <div>
+                <h3>Analiză date</h3>
+                <p>Vizualizează grafice și indicatori</p>
+            </div>
+        </a>
+
+        <a href="{{ url_for('main.listings') }}" class="admin-action-item admin-action-item--green">
+            <div class="admin-action-icon">
+                <i class="bi bi-megaphone"></i>
+            </div>
+            <div>
+                <h3>Anunțuri publicate</h3>
+                <p>Verifică listările din platformă</p>
+            </div>
+        </a>
+
+        <a href="{{ url_for('main.explore') }}" class="admin-action-item admin-action-item--orange">
+            <div class="admin-action-icon">
+                <i class="bi bi-search"></i>
+            </div>
+            <div>
+                <h3>Explorează piața</h3>
+                <p>Compară datele externe colectate</p>
+            </div>
+        </a>
+    </div>
+</section>
 {% endblock %}

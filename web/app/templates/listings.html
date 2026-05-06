@@ -3,141 +3,235 @@
 {% block title %}Anunțuri salvate{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-            <h1 class="h4 mb-0">Anunțuri salvate în platformă</h1>
+{% set stats = namespace(excellent=0, good=0) %}
 
-            {% if current_user.is_authenticated and current_user.is_buyer %}
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.favorites') }}">
-                    Vezi favoritele mele
-                </a>
-            {% endif %}
+{% for row in rows %}
+    {% if row.deal_score is not none and row.deal_score >= 85 %}
+        {% set stats.excellent = stats.excellent + 1 %}
+    {% elif row.deal_score is not none and row.deal_score >= 65 %}
+        {% set stats.good = stats.good + 1 %}
+    {% endif %}
+{% endfor %}
+
+<div class="listings-page-header">
+    <div class="listings-header-row">
+        <div>
+            <div class="listings-title-wrap">
+                <div class="listings-title-icon">
+                    <i class="bi bi-bookmark-heart"></i>
+                </div>
+                <div>
+                    <h1 class="listings-page-title">Anunțuri salvate în platformă</h1>
+                    <p class="listings-page-subtitle">
+                        Vizualizează listările publicate de vânzători pe baza evaluărilor complete.
+                    </p>
+                </div>
+            </div>
         </div>
 
-        {% if rows %}
-            <div class="d-flex flex-column gap-3">
-                {% for row in rows %}
-                    {% if row.deal_score is none %}
-                        {% set deal_badge_class = "badge-score-na" %}
-                    {% elif row.deal_score >= 85 %}
-                        {% set deal_badge_class = "badge-score-excellent" %}
-                    {% elif row.deal_score >= 65 %}
-                        {% set deal_badge_class = "badge-score-good" %}
-                    {% elif row.deal_score >= 45 %}
-                        {% set deal_badge_class = "badge-score-medium" %}
-                    {% else %}
-                        {% set deal_badge_class = "badge-score-low" %}
-                    {% endif %}
-
-                    <div class="border rounded p-3 bg-white">
-                        <div class="listing-card-layout">
-                            {% if row.image_filename %}
-                                <div class="listing-image-wrap">
-                                    <img
-                                        src="{{ url_for('static', filename='uploads/listings/' ~ row.image_filename) }}"
-                                        alt="Poză produs"
-                                        class="listing-image"
-                                    >
-                                </div>
-                            {% endif %}
-
-                            <div class="listing-content">
-                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                                    <div>
-                                        <div class="fw-semibold">{{ row.title or "-" }}</div>
-                                        <div class="text-muted small">
-                                            {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
-                                        </div>
-                                    </div>
-
-                                    <div class="text-end">
-                                        <div class="fw-semibold">{{ row.price_asked|price }}</div>
-                                        <small class="text-muted">Preț cerut</small>
-                                    </div>
-                                </div>
-
-                                <div class="d-flex flex-wrap gap-2 mb-2">
-                                    <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
-                                    <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
-                                    <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
-                                </div>
-
-                                <div class="d-flex flex-wrap gap-2 mb-3">
-                                    {% if row.condition == "used" %}
-                                        <span class="badge badge-condition-used">Second-hand</span>
-                                    {% elif row.condition == "new" %}
-                                        <span class="badge badge-condition-new">Nou</span>
-                                    {% else %}
-                                        <span class="badge text-bg-secondary">Condiție necunoscută</span>
-                                    {% endif %}
-
-                                    <span class="badge text-bg-light">Preț recomandat: {{ row.recommended_price|price }}</span>
-
-                                    {% if row.deal_score is not none %}
-                                        <span class="badge {{ deal_badge_class }}">Scor ofertă: {{ row.deal_score }}</span>
-                                    {% else %}
-                                        <span class="badge badge-score-na">Scor ofertă: N/A</span>
-                                    {% endif %}
-                                </div>
-
-                                {% if row.description %}
-                                    <div class="mb-3">
-                                        <div class="text-muted small mb-1">Descriere</div>
-                                        <div class="small">
-                                            {{ row.description[:180] }}{% if row.description|length > 180 %}...{% endif %}
-                                        </div>
-                                    </div>
-                                {% endif %}
-
-                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                    <div>
-                                        {% if current_user.is_authenticated and current_user.is_buyer %}
-                                            {% if row.id in favorite_listing_ids %}
-                                                <span class="badge text-bg-success">Salvat la favorite</span>
-                                            {% else %}
-                                                <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <input type="hidden" name="listing_id" value="{{ row.id }}">
-                                                    <button type="submit" class="btn btn-sm btn-outline-primary">
-                                                        Adaugă la favorite
-                                                    </button>
-                                                </form>
-                                            {% endif %}
-                                        {% endif %}
-                                    </div>
-
-                                    <div class="d-flex flex-wrap gap-2 justify-content-end">
-                                        {% if row.evaluation_token %}
-                                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
-                                                Vezi evaluarea
-                                            </a>
-                                        {% else %}
-                                            <span class="text-muted small">Fără evaluare asociată</span>
-                                        {% endif %}
-
-                                        {% if current_user.is_authenticated and (current_user.is_admin or (current_user.is_seller and current_user.id == row.user_id)) %}
-                                            <form method="post" action="{{ url_for('main.delete_listing_route', listing_id=row.id) }}" class="d-inline">
-                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-sm btn-outline-danger"
-                                                    onclick="return confirm('Sigur vrei să ștergi acest anunț?');"
-                                                >
-                                                    Șterge
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-muted mb-0">Nu există încă anunțuri publicate.</p>
+        {% if current_user.is_authenticated and current_user.is_buyer %}
+            <a class="btn btn-primary listings-favorites-btn" href="{{ url_for('main.favorites') }}">
+                <i class="bi bi-heart"></i>
+                Vezi favoritele mele
+            </a>
         {% endif %}
     </div>
 </div>
+
+<div class="listings-summary-bar">
+    <div class="listings-summary-left">
+        <span>Afișare <strong>{{ rows|length }}</strong> anunțuri</span>
+
+        {% if stats.excellent > 0 %}
+            <span class="listings-summary-pill listings-summary-pill--excellent">
+                {{ stats.excellent }} oferte excelente
+            </span>
+        {% endif %}
+
+        {% if stats.good > 0 %}
+            <span class="listings-summary-pill listings-summary-pill--good">
+                {{ stats.good }} oferte bune
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="listings-summary-right">
+        <span class="listings-static-info">
+            <i class="bi bi-clock-history"></i>
+            Ordonate după data publicării
+        </span>
+    </div>
+</div>
+
+{% if rows %}
+    <div class="listings-list">
+        {% for row in rows %}
+            {% if row.deal_score is none %}
+                {% set deal_badge_class = "badge-score-na" %}
+                {% set deal_label = "Scor indisponibil" %}
+            {% elif row.deal_score >= 85 %}
+                {% set deal_badge_class = "badge-score-excellent" %}
+                {% set deal_label = "Ofertă excelentă" %}
+            {% elif row.deal_score >= 65 %}
+                {% set deal_badge_class = "badge-score-good" %}
+                {% set deal_label = "Ofertă bună" %}
+            {% elif row.deal_score >= 45 %}
+                {% set deal_badge_class = "badge-score-medium" %}
+                {% set deal_label = "Ofertă medie" %}
+            {% else %}
+                {% set deal_badge_class = "badge-score-low" %}
+                {% set deal_label = "Ofertă slabă" %}
+            {% endif %}
+
+            <article class="listing-market-card">
+                <div class="listing-market-media">
+                    {% if row.image_filename %}
+                        <img
+                            src="{{ url_for('static', filename='uploads/listings/' ~ row.image_filename) }}"
+                            alt="Poză produs"
+                            class="listing-market-image"
+                        >
+                    {% else %}
+                        <div class="listing-market-placeholder">
+                            <i class="bi bi-laptop"></i>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="listing-market-body">
+                    <div class="listing-market-main">
+                        <div class="listing-market-info">
+                            <h2 class="listing-market-title">
+                                {{ row.title or "-" }}
+                            </h2>
+
+                            <div class="listing-market-date">
+                                Publicat {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                            </div>
+
+                            <div class="listing-market-badges">
+                                {% if row.condition == "used" %}
+                                    <span class="badge badge-condition-used">Second-hand</span>
+                                {% elif row.condition == "new" %}
+                                    <span class="badge badge-condition-new">Nou</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                {% endif %}
+
+                                {% if row.deal_score is not none %}
+                                    <span class="badge {{ deal_badge_class }}">
+                                        {{ deal_label }} · {{ row.deal_score }}/100
+                                    </span>
+                                {% else %}
+                                    <span class="badge {{ deal_badge_class }}">
+                                        Scor ofertă: N/A
+                                    </span>
+                                {% endif %}
+
+                                <span class="badge text-bg-light">{{ row.brand or "-" }}</span>
+                                <span class="badge text-bg-light">{{ row.model_family or "-" }}</span>
+                                <span class="badge text-bg-light">{{ row.ram_gb or "-" }} GB</span>
+                            </div>
+                        </div>
+
+                        <div class="listing-market-price-box">
+                            <div class="listing-market-price">{{ row.price_asked|price }}</div>
+                            <div class="listing-market-price-label">Preț cerut</div>
+                        </div>
+                    </div>
+
+                    <div class="listing-market-recommended">
+                        <div>
+                            <i class="bi bi-graph-up-arrow"></i>
+                            <span>Preț recomandat:</span>
+                            <strong>{{ row.recommended_price|price }}</strong>
+                        </div>
+
+                        {% if row.price_asked is not none and row.recommended_price is not none %}
+                            {% set delta = row.price_asked - row.recommended_price %}
+                            {% if delta > 0 %}
+                                <span class="listing-market-delta listing-market-delta--high">
+                                    +{{ delta|price }}
+                                </span>
+                            {% elif delta < 0 %}
+                                <span class="listing-market-delta listing-market-delta--low">
+                                    {{ delta|price }}
+                                </span>
+                            {% else %}
+                                <span class="listing-market-delta">
+                                    preț egal
+                                </span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    {% if row.description %}
+                        <p class="listing-market-description">
+                            {{ row.description[:220] }}{% if row.description|length > 220 %}...{% endif %}
+                        </p>
+                    {% endif %}
+
+                    <div class="listing-market-actions">
+                        <div class="listing-market-actions-left">
+                            {% if current_user.is_authenticated and current_user.is_buyer %}
+                                {% if row.id in favorite_listing_ids %}
+                                    <span class="listing-saved-pill">
+                                        <i class="bi bi-heart-fill"></i>
+                                        Salvat la favorite
+                                    </span>
+                                {% else %}
+                                    <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="listing_id" value="{{ row.id }}">
+                                        <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                        <button type="submit" class="btn btn-outline-primary btn-sm listing-action-btn">
+                                            <i class="bi bi-heart"></i>
+                                            Adaugă la favorite
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+
+                        <div class="listing-market-actions-right">
+                            {% if row.evaluation_token %}
+                                <a class="btn btn-primary btn-sm listing-action-btn" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
+                                    <i class="bi bi-eye"></i>
+                                    Vezi evaluarea
+                                </a>
+                            {% else %}
+                                <span class="text-muted small">Fără evaluare asociată</span>
+                            {% endif %}
+
+                            {% if current_user.is_authenticated and (current_user.is_admin or (current_user.is_seller and current_user.id == row.user_id)) %}
+                                <form method="post" action="{{ url_for('main.delete_listing_route', listing_id=row.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-outline-danger btn-sm listing-action-btn"
+                                        onclick="return confirm('Sigur vrei să ștergi acest anunț?');"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                        Șterge
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </article>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="listings-empty-card">
+        <div class="listings-empty-icon">
+            <i class="bi bi-megaphone"></i>
+        </div>
+        <h2>Nu există încă anunțuri publicate</h2>
+        <p>După ce un seller publică o evaluare ca anunț, aceasta va apărea aici.</p>
+        <a href="{{ url_for('main.evaluate') }}" class="btn btn-primary">
+            Evaluează un produs
+        </a>
+    </div>
+{% endif %}
 {% endblock %}

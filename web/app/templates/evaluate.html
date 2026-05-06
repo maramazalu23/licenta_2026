@@ -4,36 +4,66 @@
 
 {% block content %}
 {% set similar = similar or [] %}
-<div class="row g-4">
-    <div class="col-lg-5">
-        <div class="card shadow-sm form-card-sticky">
-            <div class="card-body">
-                <h2 class="h4 mb-3">Formular evaluare</h2>
 
-                <form method="post" action="{{ url_for('main.evaluate') }}" novalidate>
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="mb-3">
-                        <label class="form-label">Titlu anunț</label>
-                        <input type="text" name="title" class="form-control {% if errors.title %}is-invalid{% endif %}" value="{{ form_data.title }}">
-                        {% if errors.title %}
-                            <div class="invalid-feedback">{{ errors.title }}</div>
-                        {% endif %}
-                    </div>
+<div class="eval-page-header">
+    <h1 class="eval-page-title">Evaluare laptop</h1>
+    <p class="eval-page-subtitle">
+        Completează detaliile produsului pentru a primi o evaluare detaliată a prețului.
+    </p>
+</div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Descriere</label>
-                        <textarea name="description" class="form-control {% if errors.description %}is-invalid{% endif %}" rows="5">{{ form_data.description }}</textarea>
-                        {% if errors.description %}
-                            <div class="invalid-feedback">{{ errors.description }}</div>
-                        {% endif %}
-                    </div>
+<div class="eval-layout">
+    <aside class="eval-form-panel">
+        <div class="eval-card eval-form-card">
+            <div class="eval-card-header">
+                <div class="eval-card-icon">
+                    <i class="bi bi-calculator"></i>
+                </div>
+                <div>
+                    <h2>Formular evaluare</h2>
+                    <p>Completează detaliile laptopului</p>
+                </div>
+            </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Brand</label>
-                        <select name="brand" class="form-select {% if errors.brand %}is-invalid{% endif %}">
-                            <option value="">-- alege brand --</option>
+            <form method="post" action="{{ url_for('main.evaluate') }}" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label class="form-label">Titlu anunț <span class="text-danger">*</span></label>
+                    <input
+                        type="text"
+                        name="title"
+                        class="form-control eval-input {% if errors.title %}is-invalid{% endif %}"
+                        value="{{ form_data.title }}"
+                        placeholder="ex: Laptop Lenovo ThinkBook 16GB RAM SSD"
+                    >
+                    {% if errors.title %}
+                        <div class="invalid-feedback">{{ errors.title }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Descriere</label>
+                    <textarea
+                        name="description"
+                        class="form-control eval-input eval-textarea {% if errors.description %}is-invalid{% endif %}"
+                        rows="4"
+                        placeholder="Descrie specificațiile și starea laptopului..."
+                    >{{ form_data.description }}</textarea>
+                    {% if errors.description %}
+                        <div class="invalid-feedback">{{ errors.description }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-12 col-xl-6">
+                        <label class="form-label">Brand <span class="text-danger">*</span></label>
+                        <select name="brand" class="form-select eval-input {% if errors.brand %}is-invalid{% endif %}">
+                            <option value="">Selectează</option>
                             {% for brand in filters.brands %}
-                                <option value="{{ brand }}" {% if form_data.brand == brand %}selected{% endif %}>{{ brand }}</option>
+                                <option value="{{ brand }}" {% if form_data.brand == brand %}selected{% endif %}>
+                                    {{ brand }}
+                                </option>
                             {% endfor %}
                         </select>
                         {% if errors.brand %}
@@ -41,12 +71,14 @@
                         {% endif %}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Familie model <span class="text-muted fw-normal small">(opțional)</span></label>
-                        <select name="model_family" class="form-select {% if errors.model_family %}is-invalid{% endif %}">
-                            <option value="">-- alege familia (opțional) --</option>
+                    <div class="col-md-6 col-lg-12 col-xl-6">
+                        <label class="form-label">Familie model</label>
+                        <select name="model_family" class="form-select eval-input {% if errors.model_family %}is-invalid{% endif %}">
+                            <option value="">Opțional</option>
                             {% for family in filters.families %}
-                                <option value="{{ family }}" {% if form_data.model_family == family %}selected{% endif %}>{{ family }}</option>
+                                <option value="{{ family }}" {% if form_data.model_family == family %}selected{% endif %}>
+                                    {{ family }}
+                                </option>
                             {% endfor %}
                         </select>
                         {% if errors.model_family %}
@@ -54,12 +86,14 @@
                         {% endif %}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">RAM (GB)</label>
-                        <select name="ram_gb" class="form-select {% if errors.ram_gb %}is-invalid{% endif %}">
-                            <option value="">-- alege RAM --</option>
+                    <div class="col-md-6 col-lg-12 col-xl-6">
+                        <label class="form-label">RAM <span class="text-danger">*</span></label>
+                        <select name="ram_gb" class="form-select eval-input {% if errors.ram_gb %}is-invalid{% endif %}">
+                            <option value="">Selectează</option>
                             {% for ram in filters.ram_options %}
-                                <option value="{{ ram }}" {% if form_data.ram_gb == (ram|string) %}selected{% endif %}>{{ ram }}</option>
+                                <option value="{{ ram }}" {% if form_data.ram_gb == (ram|string) %}selected{% endif %}>
+                                    {{ ram }} GB
+                                </option>
                             {% endfor %}
                         </select>
                         {% if errors.ram_gb %}
@@ -67,10 +101,10 @@
                         {% endif %}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Condiție</label>
-                        <select name="condition" class="form-select {% if errors.condition %}is-invalid{% endif %}">
-                            <option value="">-- alege condiția --</option>
+                    <div class="col-md-6 col-lg-12 col-xl-6">
+                        <label class="form-label">Condiție <span class="text-danger">*</span></label>
+                        <select name="condition" class="form-select eval-input {% if errors.condition %}is-invalid{% endif %}">
+                            <option value="">Selectează</option>
                             <option value="used" {% if form_data.condition == "used" %}selected{% endif %}>Second-hand</option>
                             <option value="new" {% if form_data.condition == "new" %}selected{% endif %}>Nou</option>
                         </select>
@@ -78,302 +112,360 @@
                             <div class="invalid-feedback">{{ errors.condition }}</div>
                         {% endif %}
                     </div>
+                </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Preț cerut (RON)</label>
-                        <input type="number" step="0.01" name="price_asked" class="form-control {% if errors.price_asked %}is-invalid{% endif %}" value="{{ form_data.price_asked }}">
-                        {% if errors.price_asked %}
-                            <div class="invalid-feedback">{{ errors.price_asked }}</div>
-                        {% endif %}
-                    </div>
+                <div class="mt-3 mb-3">
+                    <label class="form-label">Preț cerut (RON) <span class="text-danger">*</span></label>
+                    <input
+                        type="number"
+                        step="0.01"
+                        name="price_asked"
+                        class="form-control eval-input {% if errors.price_asked %}is-invalid{% endif %}"
+                        value="{{ form_data.price_asked }}"
+                        placeholder="ex: 3500"
+                    >
+                    {% if errors.price_asked %}
+                        <div class="invalid-feedback">{{ errors.price_asked }}</div>
+                    {% endif %}
+                </div>
 
-                    <button type="submit" class="btn btn-primary">Evaluează</button>
-                </form>
+                <button type="submit" class="btn btn-primary eval-submit-btn">
+                    Evaluează
+                </button>
+            </form>
+
+            <div class="eval-form-note">
+                Evaluarea se bazează pe date reale colectate din piața laptopurilor.
             </div>
         </div>
-    </div>
+    </aside>
 
-    <div class="col-lg-7">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h2 class="h4 mb-3">Rezultate</h2>
+    <section class="eval-results-panel">
+        {% if saved_token %}
+            <div class="eval-saved-card">
+                <div class="eval-saved-icon">
+                    <i class="bi bi-check-lg"></i>
+                </div>
 
-                {% if saved_token %}
-                    <div class="result-summary-card mb-4">
-                        <div class="result-token">
-                            Evaluarea a fost salvată.<br>
-                            <strong>Token:</strong> {{ saved_token }}
-                        </div>
+                <div class="eval-saved-content">
+                    <h2>Evaluare salvată</h2>
+                    <p>Token-ul tău de evaluare a fost generat și salvat în sistem.</p>
 
-                        <div class="mt-3">
-                            {% if listing_already_published %}
-                                <div class="result-published-box">
-                                    <div>Acest anunț este deja publicat în platformă.</div>
-                                    <div class="mt-2">
-                                        <a href="{{ url_for('main.listings') }}" class="btn btn-outline-success btn-sm">
-                                            Vezi anunțurile publicate
-                                        </a>
-                                    </div>
-                                </div>
-                            {% elif current_user.is_authenticated and (current_user.is_seller or current_user.is_admin) and can_publish %}
-                                <form method="post" action="{{ url_for('main.publish_listing', token=saved_token) }}" enctype="multipart/form-data">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                                    <div class="mb-2">
-                                        <label class="form-label small mb-1">Poză produs</label>
-                                        <input type="file" name="listing_image" class="form-control form-control-sm" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
-                                        <div class="form-text">
-                                            Opțional. Formate acceptate: JPG, PNG, WEBP. Dimensiune maximă: 5 MB.
-                                        </div>
-                                    </div>
-
-                                    <button type="submit" class="btn btn-success btn-sm">Publică anunțul în platformă</button>
-                                </form>
-                            {% elif not current_user.is_authenticated %}
-                                <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-outline-success btn-sm">
-                                    Autentifică-te pentru a publica anunțul
-                                </a>
-                            {% elif current_user.is_authenticated and current_user.is_buyer %}
-                                <div class="text-muted small">
-                                    Conturile de tip buyer nu pot publica anunțuri.
-                                </div>
-                            {% elif current_user.is_authenticated and current_user.is_seller and publish_block_reason == "forbidden" %}
-                                <div class="alert alert-warning mb-0">
-                                    Poți publica în platformă doar evaluările create din contul tău.
-                                </div>
-                            {% elif current_user.is_authenticated and current_user.is_admin and publish_block_reason == "forbidden" %}
-                                <div class="alert alert-warning mb-0">
-                                    Evaluarea nu poate fi publicată din acest cont.
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endif %}
-
-                {% if result %}
-                    {% set selected_condition = result.price_estimation.outputs.selected_condition or form_data.condition or 'used' %}
-                    {% set fair_price_value = result.price_estimation.outputs.fair_price %}
-                    {% set fair_price_label = 'Preț corect SH' if selected_condition == 'used' else 'Preț corect nou' %}
-
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-4">
-                            <div class="metric-card p-3 h-100">
-                                <div class="metric-label">{{ fair_price_label }}</div>
-                                <div class="metric-value">{{ fair_price_value|price }}</div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="metric-card p-3 h-100">
-                                <div class="metric-label">Scor depreciere</div>
-                                <div class="metric-inline">
-                                    <div class="metric-value">
-                                        {{ result.depreciation.score if result.depreciation.score is not none else "N/A" }}
-                                    </div>
-                                    <span class="badge {{ result.ui.depreciation_badge_class }}">
-                                        {{ result.ui.depreciation_label_ro }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="metric-card p-3 h-100">
-                                <div class="metric-label">Scor atractivitate</div>
-                                <div class="metric-inline">
-                                    <div class="metric-value">
-                                        {{ result.attractiveness.score if result.attractiveness.score is not none else "N/A" }}
-                                    </div>
-                                    <span class="badge {{ result.ui.attractiveness_badge_class }}">
-                                        {{ result.ui.attractiveness_label_ro }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="eval-token-box">
+                        {{ saved_token }}
                     </div>
 
-                    <div class="section-box mb-4">
-                        <div class="section-title-row">
-                            <h3 class="h5">Evaluare preț</h3>
-                            <span class="badge {{ result.ui.deal_badge_class }}">{{ result.ui.deal_label_ro }}</span>
+                    {% if listing_already_published %}
+                        <div class="eval-published-box">
+                            <div>Acest anunț este deja publicat în platformă.</div>
+                            <a href="{{ url_for('main.listings') }}" class="btn btn-outline-success btn-sm mt-2">
+                                Vezi anunțurile publicate
+                            </a>
                         </div>
+                    {% elif current_user.is_authenticated and (current_user.is_seller or current_user.is_admin) and can_publish %}
+                        <form method="post" action="{{ url_for('main.publish_listing', token=saved_token) }}" enctype="multipart/form-data" class="eval-publish-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <div class="kv-list">
-                            <div class="kv-item">
-                                <strong>Scor ofertă:</strong>
-                                {{ result.price_estimation.outputs.deal_rating_score if result.price_estimation.outputs.deal_rating_score is not none else "N/A" }}
-                            </div>
+                            <div class="eval-upload-box">
+                                <label class="eval-upload-label">
+                                    Poză produs <span>(opțional pentru vânzători)</span>
+                                </label>
 
-                            {% if selected_condition == 'used' %}
-                                <div class="kv-item">
-                                    <strong>Q1 / Mediană / Q3 SH:</strong>
-                                    {{ result.price_estimation.market_reference.used_q1|price }},
-                                    {{ result.price_estimation.market_reference.used_median|price }},
-                                    {{ result.price_estimation.market_reference.used_q3|price }}
-                                </div>
-                                <div class="kv-item">
-                                    <strong>Mediană nou:</strong>
-                                    {{ result.price_estimation.market_reference.new_median|price }}
-                                </div>
-                            {% else %}
-                                <div class="kv-item">
-                                    <strong>Mediană segment nou:</strong>
-                                    {{ result.price_estimation.market_reference.new_median|price }}
-                                </div>
-                                <div class="kv-item">
-                                    <strong>Referință mediană SH:</strong>
-                                    {{ result.price_estimation.market_reference.used_median|price }}
-                                </div>
-                            {% endif %}
-
-                            <div class="kv-item">
-                                <strong>Nivel segment:</strong>
-                                {% set sl = result.price_estimation.segment.source_level %}
-                                {% if sl == 'brand+ram+family' %}Brand + RAM + Familie
-                                {% elif sl == 'brand+ram' %}Brand + RAM
-                                {% elif sl == 'brand+family' %}Brand + Familie
-                                {% elif sl == 'brand' %}Brand (general)
-                                {% elif sl == 'ram' %}RAM (general)
-                                {% elif sl == 'no_match' %}Fără comparabile suficiente
-                                {% else %}{{ sl }}{% endif %}
-                            </div>
-
-                            <div class="highlight-box mt-2">
-                                <strong>Explicație:</strong>
-                                {{ result.price_estimation.explanations.deal }}
-                            </div>
-                            {% if result.price_estimation.segment.source_level == 'no_match' %}
-                                <div class="alert alert-warning mt-2 mb-0">
-                                    <strong>Date insuficiente pentru acest segment.</strong>
-                                    Nu am găsit suficiente anunțuri comparabile în baza de date pentru a estima prețul de piață.
-                                    Încearcă să completezi brandul sau RAM-ul pentru un rezultat mai precis.
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="section-box mb-4">
-                        <div class="section-title-row">
-                            <h3 class="h5">Depreciere</h3>
-                            <span class="badge {{ result.ui.depreciation_badge_class }}">{{ result.ui.depreciation_label_ro }}</span>
-                        </div>
-
-                        <div class="kv-list">
-                            <div class="kv-item">
-                                <strong>Retention ratio:</strong>
-                                {{ result.depreciation.retention_ratio|num }}
-                            </div>
-                            <div class="kv-item">
-                                <strong>Depreciere %:</strong>
-                                {{ result.depreciation.depreciation_pct|pct }}
-                            </div>
-                            <div class="highlight-box mt-2">
-                                <strong>Explicație:</strong>
-                                {{ result.depreciation.explanation }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="section-box">
-                        <div class="section-title-row">
-                            <h3 class="h5">Atractivitate anunț</h3>
-                            <span class="badge {{ result.ui.attractiveness_badge_class }}">{{ result.ui.attractiveness_label_ro }}</span>
-                        </div>
-
-                        <div class="kv-list">
-                            <div class="highlight-box">
-                                <strong>Explicație:</strong>
-                                {{ result.attractiveness.explanation }}
-                            </div>
-
-                            {% if result.attractiveness.recommendations %}
-                                <div class="alert alert-warning mb-0 mt-2">
-                                    <strong>Recomandări:</strong>
-                                    <ul class="recommendations-list mt-2">
-                                        {% for rec in result.attractiveness.recommendations %}
-                                            <li>{{ rec }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </div>
-                            {% else %}
-                                <div class="alert alert-success mb-0 mt-2">
-                                    Anunțul este bine completat.
-                                </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    {% if similar %}
-                        <div class="section-box mt-4">
-                            <div class="section-title-row">
-                                <h3 class="h5 mb-0">Produse similare din baza de date</h3>
-                                <span class="badge bg-secondary">{{ similar|length }} rezultate</span>
-                            </div>
-
-                            <p class="text-muted small mt-2 mb-3">
-                                Exemple selectate pe baza informațiilor completate în formular. Similaritatea este estimată folosind brandul, familia modelului și configurația RAM, în funcție de datele disponibile.
-                            </p>
-
-                            <div class="row g-3">
-                                {% for item in similar %}
-                                    <div class="col-12">
-                                        <div class="border rounded p-3 bg-white">
-                                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                                                <div>
-                                                    {% if item.url %}
-                                                        <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="fw-semibold text-decoration-none">
-                                                            {{ item.title or "-" }}
-                                                        </a>
-                                                    {% else %}
-                                                        <span class="fw-semibold">{{ item.title or "-" }}</span>
-                                                    {% endif %}
-                                                </div>
-
-                                                <div class="text-end">
-                                                    <div class="fw-bold">{{ item.price_ron|price }}</div>
-                                                    <small class="text-muted">Scor similaritate: {{ item.similarity_score }}</small>
-                                                </div>
-                                            </div>
-
-                                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                                <span class="badge text-bg-light">Sursă: {{ item.source or "-" }}</span>
-                                                <span class="badge text-bg-light">Brand: {{ item.brand or "-" }}</span>
-                                                <span class="badge text-bg-light">Familie: {{ item.model_family or "-" }}</span>
-                                                <span class="badge text-bg-light">RAM: {{ item.ram_gb or "-" }} GB</span>
-                                            </div>
-
-                                            <div class="d-flex flex-wrap gap-2">
-                                                {% if item.condition == "used" %}
-                                                    <span class="badge badge-condition-used">Second-hand</span>
-                                                {% elif item.condition == "new" %}
-                                                    <span class="badge badge-condition-new">Nou</span>
-                                                {% else %}
-                                                    <span class="badge text-bg-secondary">Condiție necunoscută</span>
-                                                {% endif %}
-
-                                                {% if item.cpu %}
-                                                    <span class="badge text-bg-light">CPU: {{ item.cpu }}</span>
-                                                {% endif %}
-
-                                                {% if item.storage %}
-                                                    <span class="badge text-bg-light">Stocare: {{ item.storage }}</span>
-                                                {% endif %}
-
-                                                {% if item.gpu %}
-                                                    <span class="badge text-bg-light">GPU: {{ item.gpu }}</span>
-                                                {% endif %}
-                                            </div>
-                                        </div>
+                                <div class="eval-upload-control">
+                                    <i class="bi bi-upload"></i>
+                                    <div>
+                                        <div class="fw-semibold">Selectează o imagine din calculator</div>
+                                        <small>PNG, JPG, JPEG sau WEBP, maximum 5 MB</small>
                                     </div>
-                                {% endfor %}
+                                    <input
+                                        type="file"
+                                        name="listing_image"
+                                        accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                                        class="form-control form-control-sm mt-2"
+                                    >
+                                </div>
                             </div>
+
+                            <button type="submit" class="btn btn-success btn-sm eval-publish-btn">
+                                <i class="bi bi-share"></i>
+                                Publică anunțul
+                            </button>
+                        </form>
+                    {% elif not current_user.is_authenticated %}
+                        <a href="{{ url_for('auth.login', next=request.path) }}" class="btn btn-outline-success btn-sm">
+                            Autentifică-te pentru a publica anunțul
+                        </a>
+                    {% elif current_user.is_authenticated and current_user.is_buyer %}
+                        <div class="text-muted small">
+                            Conturile de tip buyer nu pot publica anunțuri.
+                        </div>
+                    {% elif current_user.is_authenticated and current_user.is_seller and publish_block_reason == "forbidden" %}
+                        <div class="alert alert-warning mb-0">
+                            Poți publica în platformă doar evaluările create din contul tău.
+                        </div>
+                    {% elif current_user.is_authenticated and current_user.is_admin and publish_block_reason == "forbidden" %}
+                        <div class="alert alert-warning mb-0">
+                            Evaluarea nu poate fi publicată din acest cont.
                         </div>
                     {% endif %}
-                {% else %}
-                    <p class="text-muted mb-0">Completează formularul și apasă „Evaluează” pentru a vedea rezultatele.</p>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if result %}
+            {% set selected_condition = result.price_estimation.outputs.selected_condition or form_data.condition or 'used' %}
+            {% set fair_price_value = result.price_estimation.outputs.fair_price %}
+            {% set fair_price_label = 'Preț corect SH' if selected_condition == 'used' else 'Preț corect nou' %}
+
+            <div class="eval-metrics-grid">
+                <div class="eval-metric-card">
+                    <div class="eval-metric-icon eval-metric-icon--price">
+                        <i class="bi bi-cash-coin"></i>
+                    </div>
+                    <div>
+                        <div class="eval-metric-label">{{ fair_price_label }}</div>
+                        <div class="eval-metric-value">{{ fair_price_value|price }}</div>
+                    </div>
+                </div>
+
+                <div class="eval-metric-card">
+                    <div class="eval-metric-icon eval-metric-icon--depr">
+                        <i class="bi bi-graph-down-arrow"></i>
+                    </div>
+                    <div>
+                        <div class="eval-metric-label">Scor depreciere</div>
+                        <div class="eval-metric-value">
+                            {{ result.depreciation.score if result.depreciation.score is not none else "N/A" }}
+                        </div>
+                        <div class="eval-metric-badge">
+                            {{ result.ui.depreciation_label_ro }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="eval-metric-card">
+                    <div class="eval-metric-icon eval-metric-icon--attr">
+                        <i class="bi bi-eye"></i>
+                    </div>
+                    <div>
+                        <div class="eval-metric-label">Scor atractivitate</div>
+                        <div class="eval-metric-value">
+                            {{ result.attractiveness.score if result.attractiveness.score is not none else "N/A" }}
+                        </div>
+                        <div class="eval-metric-badge">
+                            {{ result.ui.attractiveness_label_ro }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="eval-section-card">
+                <div class="eval-section-header">
+                    <div>
+                        <h2>Evaluare preț</h2>
+                        <p>Comparație între prețul cerut și referințele din segmentul de piață.</p>
+                    </div>
+                    <span class="badge {{ result.ui.deal_badge_class }}">{{ result.ui.deal_label_ro }}</span>
+                </div>
+
+                <div class="eval-price-list">
+                    <div class="eval-price-row eval-price-row--asked">
+                        <span>Preț cerut</span>
+                        <strong>{{ form_data.price_asked|price }}</strong>
+                    </div>
+
+                    <div class="eval-price-row eval-price-row--fair">
+                        <span>{{ fair_price_label }}</span>
+                        <strong>{{ fair_price_value|price }}</strong>
+                    </div>
+
+                    {% if selected_condition == 'used' %}
+                        <div class="eval-price-row eval-price-row--market">
+                            <span>Mediană piață SH</span>
+                            <strong>{{ result.price_estimation.market_reference.used_median|price }}</strong>
+                        </div>
+                    {% else %}
+                        <div class="eval-price-row eval-price-row--market">
+                            <span>Mediană segment nou</span>
+                            <strong>{{ result.price_estimation.market_reference.new_median|price }}</strong>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="eval-info-grid">
+                    <div>
+                        <span>Scor ofertă</span>
+                        <strong>
+                            {{ result.price_estimation.outputs.deal_rating_score if result.price_estimation.outputs.deal_rating_score is not none else "N/A" }}
+                        </strong>
+                    </div>
+
+                    {% if selected_condition == 'used' %}
+                        <div>
+                            <span>Q1 / Mediană / Q3 SH</span>
+                            <strong>
+                                {{ result.price_estimation.market_reference.used_q1|price }},
+                                {{ result.price_estimation.market_reference.used_median|price }},
+                                {{ result.price_estimation.market_reference.used_q3|price }}
+                            </strong>
+                        </div>
+                    {% else %}
+                        <div>
+                            <span>Referință mediană SH</span>
+                            <strong>{{ result.price_estimation.market_reference.used_median|price }}</strong>
+                        </div>
+                    {% endif %}
+
+                    <div>
+                        <span>Nivel segment</span>
+                        <strong>
+                            {% set sl = result.price_estimation.segment.source_level %}
+                            {% if sl == 'brand+ram+family' %}Brand + RAM + Familie
+                            {% elif sl == 'brand+ram' %}Brand + RAM
+                            {% elif sl == 'brand+family' %}Brand + Familie
+                            {% elif sl == 'brand' %}Brand general
+                            {% elif sl == 'ram' %}RAM general
+                            {% elif sl == 'no_match' %}Fără comparabile suficiente
+                            {% else %}{{ sl }}{% endif %}
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="eval-explanation-box">
+                    <strong>Explicație:</strong>
+                    {{ result.price_estimation.explanations.deal }}
+                </div>
+
+                {% if result.price_estimation.segment.source_level == 'no_match' %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <strong>Date insuficiente pentru acest segment.</strong>
+                        Nu am găsit suficiente anunțuri comparabile în baza de date pentru a estima prețul de piață.
+                        Încearcă să completezi brandul sau RAM-ul pentru un rezultat mai precis.
+                    </div>
                 {% endif %}
             </div>
-        </div>
-    </div>
+
+            <div class="eval-section-card">
+                <div class="eval-section-header">
+                    <div>
+                        <h2>Depreciere</h2>
+                        <p>Analiza deprecierii în raport cu prețurile produselor noi din segment.</p>
+                    </div>
+                    <span class="badge {{ result.ui.depreciation_badge_class }}">{{ result.ui.depreciation_label_ro }}</span>
+                </div>
+
+                <div class="eval-info-grid eval-info-grid--two">
+                    <div>
+                        <span>Retention ratio</span>
+                        <strong>{{ result.depreciation.retention_ratio|num }}</strong>
+                    </div>
+                    <div>
+                        <span>Depreciere estimată</span>
+                        <strong>{{ result.depreciation.depreciation_pct|pct }}</strong>
+                    </div>
+                </div>
+
+                <div class="eval-explanation-box">
+                    <strong>Explicație:</strong>
+                    {{ result.depreciation.explanation }}
+                </div>
+            </div>
+
+            <div class="eval-section-card">
+                <div class="eval-section-header">
+                    <div>
+                        <h2>Atractivitate anunț</h2>
+                        <p>Evaluare bazată pe preț, descriere și contextul pieței.</p>
+                    </div>
+                    <span class="badge {{ result.ui.attractiveness_badge_class }}">{{ result.ui.attractiveness_label_ro }}</span>
+                </div>
+
+                <div class="eval-explanation-box">
+                    <strong>Explicație:</strong>
+                    {{ result.attractiveness.explanation }}
+                </div>
+
+                {% if result.attractiveness.recommendations %}
+                    <div class="alert alert-warning mb-0 mt-3">
+                        <strong>Recomandări:</strong>
+                        <ul class="recommendations-list mt-2">
+                            {% for rec in result.attractiveness.recommendations %}
+                                <li>{{ rec }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <div class="alert alert-success mb-0 mt-3">
+                        Anunțul este bine completat.
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if similar %}
+                <div class="eval-section-card">
+                    <div class="eval-section-header">
+                        <div>
+                            <h2>Produse similare</h2>
+                            <p>Găsite în baza de date pe baza brandului, familiei modelului și configurației RAM.</p>
+                        </div>
+                        <span class="eval-results-count">{{ similar|length }} rezultate</span>
+                    </div>
+
+                    <div class="eval-similar-list">
+                        {% for item in similar %}
+                            <div class="eval-similar-item">
+                                <div class="eval-similar-icon">
+                                    <i class="bi bi-laptop"></i>
+                                </div>
+
+                                <div class="eval-similar-main">
+                                    {% if item.url %}
+                                        <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="eval-similar-title">
+                                            {{ item.title or "-" }}
+                                        </a>
+                                    {% else %}
+                                        <div class="eval-similar-title">{{ item.title or "-" }}</div>
+                                    {% endif %}
+
+                                    <div class="eval-similar-meta">
+                                        <strong>{{ item.price_ron|price }}</strong>
+                                        {% if item.condition == "used" %}
+                                            <span class="badge badge-condition-used">Second-hand</span>
+                                        {% elif item.condition == "new" %}
+                                            <span class="badge badge-condition-new">Nou</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                        {% endif %}
+                                        <span>{{ item.source or "-" }}</span>
+                                    </div>
+
+                                    <div class="eval-similar-specs">
+                                        <span>Brand: {{ item.brand or "-" }}</span>
+                                        <span>Familie: {{ item.model_family or "-" }}</span>
+                                        <span>RAM: {{ item.ram_gb or "-" }} GB</span>
+                                        {% if item.cpu %}<span>CPU: {{ item.cpu }}</span>{% endif %}
+                                        {% if item.storage %}<span>Stocare: {{ item.storage }}</span>{% endif %}
+                                        {% if item.gpu %}<span>GPU: {{ item.gpu }}</span>{% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="eval-similar-score">
+                                    Potrivire {{ item.similarity_score }}/9
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="eval-empty-card">
+                <div class="eval-empty-icon">
+                    <i class="bi bi-stars"></i>
+                </div>
+                <h2>Rezultatele vor apărea aici</h2>
+                <p>Completează formularul din stânga și apasă „Evaluează” pentru a vedea analiza prețului, deprecierea, atractivitatea și produsele similare.</p>
+            </div>
+        {% endif %}
+    </section>
 </div>
 {% endblock %}

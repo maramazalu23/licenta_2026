@@ -16,10 +16,14 @@ licenta_2026/
 │
 ├── scraper/
 │   ├── app/
-│   │   ├── scrapers/
 │   │   ├── cleaning/
-│   │   ├── pipeline/
-│   │   └── filters.py
+│   │   ├── config/
+│   │   ├── core/
+│   │   ├── sites/
+│   │   ├── storage/
+│   │   ├── filters.py
+│   │   ├── models.py
+│   │   └── pipeline.py
 │   ├── scripts/
 │   │   ├── build_clean_table.py
 │   │   ├── normalize_clean.py
@@ -35,11 +39,12 @@ licenta_2026/
 │   ├── app/
 │   │   ├── templates/
 │   │   ├── static/
+│   │   ├── scoring/
 │   │   ├── models.py
 │   │   ├── routes.py
 │   │   ├── services.py
-│   │   ├── db_market.py
-│   │   └── scoring/
+│   │   ├── auth.py
+│   │   └── db_market.py
 │   ├── config.py
 │   ├── run.py
 │   └── web.db
@@ -123,13 +128,7 @@ Proiectul include un script PowerShell pentru actualizarea automată a datelor:
 scraper/daily_scrape.ps1
 ```
 
-Scriptul rulează automat în ordine:
-
-1. Scraperul pentru Publi24
-2. Scraperul pentru PCGarage
-3. Reconstruirea tabelei curățate
-4. Reconstruirea view-ului de analiză
-5. Compactarea bazei de date
+Scriptul rulează comenzile necesare pentru actualizarea datelor: colectarea produselor din sursele configurate, reconstruirea datasetului de analiză și compactarea bazei de date.
 
 **Rulare manuală:**
 ```powershell
@@ -188,7 +187,7 @@ Aplicația Flask folosește două baze de date:
 
 ### Evaluarea unui produs
 
-Utilizatorul completează un formular cu titlu, descriere, brand, familie model, RAM, condiție și preț cerut. Aplicația estimează:
+Utilizatorul completează un formular cu titlu, descriere, brand, RAM, condiție, preț cerut și, opțional, familia modelului. Aplicația estimează:
 
 - prețul recomandat (bazat pe mediana segmentului de piață);
 - scorul de ofertă, interpretat ca atractivitate a prețului pentru cumpărător în raport cu segmentul de piață;
@@ -225,6 +224,8 @@ python -m flask --app run.py run
 ```
 
 Aplicația pornește la: `http://127.0.0.1:5000`
+
+Notă: interfața folosește Bootstrap și Chart.js prin CDN. Pentru rularea complet offline, aceste librării ar trebui descărcate local și servite din folderul static al aplicației Flask.
 
 ---
 
@@ -281,6 +282,7 @@ pytest -q
 ```text
 __pycache__/
 .pytest_cache/
+*.pyc
 *.db-shm
 *.db-wal
 scraper/logs/
@@ -294,7 +296,7 @@ web/app/static/uploads/listings/
 
 ## 15. Scopul proiectului
 
-Sistemul combină colectarea automată de date, normalizarea informațiilor de piață și o aplicație web cu roluri multiple, pentru a sprijini procesul de evaluare și publicare a anunțurilor de laptopuri second-hand și noi.
+Scopul proiectului este dezvoltarea unui sistem integrat pentru colectarea, analiza și utilizarea datelor de piață în procesul de evaluare a laptopurilor noi și second-hand.
 
 Poate fi utilizat pentru:
 

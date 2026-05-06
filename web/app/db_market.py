@@ -539,7 +539,16 @@ def get_explore_products(
     condition: Optional[str] = None,
     source: Optional[str] = None,
     limit: int = 60,
+    sort: str = "price_asc",
 ) -> Dict[str, Any]:
+    limit = max(1, min(int(limit), 200))
+
+    sort = str(sort or "price_asc").strip().lower()
+    if sort == "price_desc":
+        order_sql = "price_ron DESC"
+    else:
+        sort = "price_asc"
+        order_sql = "price_ron ASC"
     limit = max(1, min(int(limit), 200))
 
     clauses, params = _build_where_clauses(
@@ -569,7 +578,7 @@ def get_explore_products(
             county
         FROM products_clean
         WHERE {' AND '.join(clauses)}
-        ORDER BY price_ron ASC
+        ORDER BY {order_sql}
         LIMIT ?
     """
     params.append(limit)
@@ -580,12 +589,13 @@ def get_explore_products(
     stats = _compute_stats(prices)
 
     return {
-        "filters_used": {
+            "filters_used": {
             "brand": _clean_str(brand),
             "family": _clean_str(family),
             "ram": _normalize_int(ram),
             "condition": _normalize_condition(condition),
             "source": _clean_str(source),
+            "sort": sort,
         },
         "count": len(products),
         "stats": {

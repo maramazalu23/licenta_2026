@@ -3,315 +3,380 @@
 {% block title %}Acasă{% endblock %}
 
 {% block content %}
+
+{# ───────────────────────────────────────────────
+   AUTHENTICATED: ADMIN
+─────────────────────────────────────────────── #}
 {% if current_user.is_authenticated and current_user.is_admin %}
-    <div class="p-4 p-md-5 mb-4 bg-light rounded-3">
-        <div class="container-fluid py-2">
-            <h1 class="display-6 fw-bold">Bine ai venit în zona de administrare</h1>
-            <p class="col-md-9 fs-5 mb-0">
-                De aici poți accesa rapid funcțiile administrative ale platformei și indicatorii generali.
-            </p>
+
+<div class="home-hero home-hero--admin">
+    <div class="home-hero__inner">
+        <p class="home-hero__tag">Administrator</p>
+        <h1 class="home-hero__title">Bine ai venit în zona de administrare</h1>
+        <p class="home-hero__sub">Monitorizează activitatea platformei, analizează tendințele și gestionează calitatea datelor.</p>
+        <div class="home-hero__actions">
+            <a class="btn btn-primary btn-lg" href="{{ url_for('main.admin_dashboard') }}">Dashboard admin</a>
+            <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('main.admin_analytics') }}">Analiză date</a>
         </div>
     </div>
+</div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Utilizatori</h6>
-                    <div class="fs-3 fw-bold">{{ admin_overview.users_total if admin_overview else 0 }}</div>
-                </div>
+<div class="home-stats">
+    <div class="home-stats__grid home-stats__grid--4">
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#9b6fa5,#c084d4);">
+                <i class="bi bi-people-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ admin_overview.users_total if admin_overview else 0 }}</div>
+            <div class="home-stat-card__label">Utilizatori</div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Evaluări</h6>
-                    <div class="fs-3 fw-bold">{{ admin_overview.evaluations_total if admin_overview else 0 }}</div>
-                </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#e96b8a,#f0a0b5);">
+                <i class="bi bi-clipboard-data-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ admin_overview.evaluations_total if admin_overview else 0 }}</div>
+            <div class="home-stat-card__label">Evaluări</div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Anunțuri publicate</h6>
-                    <div class="fs-3 fw-bold">{{ admin_overview.listings_total if admin_overview else 0 }}</div>
-                </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5b8dee,#93b5f6);">
+                <i class="bi bi-megaphone-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ admin_overview.listings_total if admin_overview else 0 }}</div>
+            <div class="home-stat-card__label">Anunțuri publicate</div>
         </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Favorite</h6>
-                    <div class="fs-3 fw-bold">{{ admin_overview.favorites_total if admin_overview else 0 }}</div>
-                </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5ba89e,#86cdc6);">
+                <i class="bi bi-heart-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ admin_overview.favorites_total if admin_overview else 0 }}</div>
+            <div class="home-stat-card__label">Favorite</div>
         </div>
     </div>
+</div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h2 class="h5 mb-3">Acces rapid</h2>
-            <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-primary" href="{{ url_for('main.admin_dashboard') }}">Dashboard admin</a>
-                <a class="btn btn-outline-primary" href="{{ url_for('main.admin_analytics') }}">Analiză date</a>
-                <a class="btn btn-outline-secondary" href="{{ url_for('main.admin_history') }}">Istoric global</a>
-            </div>
-        </div>
-    </div>
-
+{# ───────────────────────────────────────────────
+   AUTHENTICATED: SELLER
+─────────────────────────────────────────────── #}
 {% elif current_user.is_authenticated and current_user.is_seller %}
-    <div class="p-4 p-md-5 mb-4 bg-light rounded-3">
-        <div class="container-fluid py-2">
-            <h1 class="display-6 fw-bold">Bine ai revenit în dashboard-ul de seller</h1>
-            <p class="col-md-9 fs-5 mb-0">
-                Aici vezi rapid activitatea ta din platformă: evaluări, anunțuri și scorul mediu al ofertelor analizate.
-            </p>
+
+<div class="home-hero">
+    <div class="home-hero__inner">
+        <p class="home-hero__tag">Vânzător</p>
+        <h1 class="home-hero__title">Bine ai revenit în dashboard-ul de seller</h1>
+        <p class="home-hero__sub">Evaluează produse, publică anunțuri și urmărește interesul cumpărătorilor pentru segmentul tău de piață.</p>
+        <div class="home-hero__actions">
+            <a class="btn btn-primary btn-lg" href="{{ url_for('main.evaluate') }}">Evaluează un produs</a>
+            <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('main.profile') }}">Dashboard complet</a>
         </div>
     </div>
+</div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Anunțuri active</h6>
-                    <div class="fs-3 fw-bold">{{ seller_overview.listings_count if seller_overview else 0 }}</div>
-                </div>
+<div class="home-stats">
+    <div class="home-stats__grid home-stats__grid--3">
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#9b6fa5,#c084d4);">
+                <i class="bi bi-megaphone-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ seller_overview.listings_count if seller_overview else 0 }}</div>
+            <div class="home-stat-card__label">Anunțuri active</div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Evaluări proprii</h6>
-                    <div class="fs-3 fw-bold">{{ seller_overview.evaluations_count if seller_overview else 0 }}</div>
-                </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#e96b8a,#f0a0b5);">
+                <i class="bi bi-clipboard-data-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ seller_overview.evaluations_count if seller_overview else 0 }}</div>
+            <div class="home-stat-card__label">Evaluări proprii</div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Scor mediu ofertă</h6>
-                    <div class="fs-3 fw-bold">
-                        {% if seller_overview and seller_overview.avg_deal_score is not none %}
-                            {{ seller_overview.avg_deal_score }}
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </div>
-                </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5b8dee,#93b5f6);">
+                <i class="bi bi-graph-up"></i>
             </div>
+            <div class="home-stat-card__value">
+                {% if seller_overview and seller_overview.avg_deal_score is not none %}
+                    {{ seller_overview.avg_deal_score }}
+                {% else %}N/A{% endif %}
+            </div>
+            <div class="home-stat-card__label">Scor mediu ofertă</div>
         </div>
     </div>
+</div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h2 class="h5 mb-3">Acțiuni rapide</h2>
-            <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-primary" href="{{ url_for('main.evaluate') }}">Evaluează un produs</a>
-                <a class="btn btn-outline-primary" href="{{ url_for('main.profile') }}">Vezi dashboard-ul complet</a>
-                <a class="btn btn-outline-secondary" href="{{ url_for('main.listings') }}">Vezi anunțurile din platformă</a>
-            </div>
-        </div>
-    </div>
-
+{# ───────────────────────────────────────────────
+   AUTHENTICATED: BUYER
+─────────────────────────────────────────────── #}
 {% elif current_user.is_authenticated and current_user.is_buyer %}
-    <div class="p-4 p-md-5 mb-4 bg-light rounded-3">
-        <div class="container-fluid py-2">
-            <h1 class="display-6 fw-bold">Bine ai venit în zona de explorare</h1>
-            <p class="col-md-9 fs-5">
-                Poți analiza piața de laptopuri, compara produse similare și salva anunțuri favorite din platformă pentru a primi sugestii personalizate.
-            </p>
+
+<div class="home-hero">
+    <div class="home-hero__inner">
+        <p class="home-hero__tag">Cumpărător</p>
+        <h1 class="home-hero__title">Bine ai venit în zona de explorare</h1>
+        <p class="home-hero__sub">Analizează piața de laptopuri, compară produse similare și salvează anunțuri favorite pentru sugestii personalizate.</p>
+        <div class="home-hero__actions">
             <a class="btn btn-primary btn-lg" href="{{ url_for('main.explore') }}">Explorează produsele</a>
+            <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('main.listings') }}">Vezi anunțuri</a>
         </div>
     </div>
+</div>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <h2 class="h5 mb-2">Experiență buyer</h2>
-            <p class="text-muted mb-0">
-                {{ buyer_overview.message if buyer_overview else "Poți explora produsele din piață, evalua rapid oferte și salva favorite din platformă." }}
-            </p>
-        </div>
-    </div>
-
-    {% if recommended_listings %}
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                <div>
-                    <h2 class="h5 mb-1">Sugestii pentru tine</h2>
-                    <p class="text-muted mb-0">
-                        Recomandări generate pe baza anunțurilor pe care le-ai salvat la favorite.
-                    </p>
-                </div>
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.listings') }}">
-                    Vezi toate anunțurile
-                </a>
+<div class="home-stats">
+    <div class="home-stats__grid home-stats__grid--4">
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#9b6fa5,#c084d4);">
+                <i class="bi bi-box-seam-fill"></i>
             </div>
+            <div class="home-stat-card__value">{{ summary.total_products }}</div>
+            <div class="home-stat-card__label">Produse analizate</div>
+        </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#e96b8a,#f0a0b5);">
+                <i class="bi bi-recycle"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.used_count }}</div>
+            <div class="home-stat-card__label">Produse second-hand</div>
+        </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5b8dee,#93b5f6);">
+                <i class="bi bi-bag-fill"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.new_count }}</div>
+            <div class="home-stat-card__label">Produse noi</div>
+        </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5ba89e,#86cdc6);">
+                <i class="bi bi-award-fill"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.distinct_brands }}</div>
+            <div class="home-stat-card__label">Branduri distincte</div>
+        </div>
+    </div>
+</div>
 
-            <div class="row g-3">
-                {% for row in recommended_listings %}
-                    {% if row.deal_score is none %}
-                        {% set deal_badge_class = "badge-score-na" %}
-                    {% elif row.deal_score >= 85 %}
-                        {% set deal_badge_class = "badge-score-excellent" %}
-                    {% elif row.deal_score >= 65 %}
-                        {% set deal_badge_class = "badge-score-good" %}
-                    {% elif row.deal_score >= 45 %}
-                        {% set deal_badge_class = "badge-score-medium" %}
-                    {% else %}
-                        {% set deal_badge_class = "badge-score-low" %}
-                    {% endif %}
-
-                    <div class="col-md-6 col-xl-4">
-                        <div class="border rounded p-3 h-100 bg-white">
-                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                                <div class="fw-semibold">{{ row.title or "-" }}</div>
-                                <div class="text-end">
-                                    <div class="fw-semibold">{{ row.price_asked|price }}</div>
-                                    <small class="text-muted">Preț cerut</small>
-                                </div>
-                            </div>
-
-                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
-                                <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
-                                <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
-                            </div>
-
-                            <div class="d-flex flex-wrap gap-2 mb-3">
-                                {% if row.condition == "used" %}
-                                    <span class="badge badge-condition-used">Second-hand</span>
-                                {% elif row.condition == "new" %}
-                                    <span class="badge badge-condition-new">Nou</span>
-                                {% else %}
-                                    <span class="badge text-bg-secondary">Condiție necunoscută</span>
-                                {% endif %}
-
-                                <span class="badge text-bg-light">Preț recomandat: {{ row.recommended_price|price }}</span>
-
-                                {% if row.deal_score is not none %}
-                                    <span class="badge {{ deal_badge_class }}">Scor ofertă: {{ row.deal_score }}</span>
-                                {% else %}
-                                    <span class="badge badge-score-na">Scor ofertă: N/A</span>
-                                {% endif %}
-                            </div>
-
-                            {% if row.description %}
-                                <div class="small text-muted mb-3">
-                                    {{ row.description[:140] }}{% if row.description|length > 140 %}...{% endif %}
-                                </div>
-                            {% endif %}
-
-                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <div>
-                                    {% if row.id in favorite_listing_ids %}
-                                        <span class="badge text-bg-success">Salvat la favorite</span>
-                                    {% else %}
-                                        <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <input type="hidden" name="listing_id" value="{{ row.id }}">
-                                            <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-primary">
-                                                Adaugă la favorite
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-
-                                {% if row.evaluation_token %}
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">
-                                        Vezi evaluarea
-                                    </a>
-                                {% endif %}
+{% if recommended_listings %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h2 class="h5 mb-1">Sugestii pentru tine</h2>
+                <p class="text-muted mb-0">Recomandări generate pe baza anunțurilor pe care le-ai salvat la favorite.</p>
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.listings') }}">Vezi toate anunțurile</a>
+        </div>
+        <div class="row g-3">
+            {% for row in recommended_listings %}
+                {% if row.deal_score is none %}{% set deal_badge_class = "badge-score-na" %}
+                {% elif row.deal_score >= 85 %}{% set deal_badge_class = "badge-score-excellent" %}
+                {% elif row.deal_score >= 65 %}{% set deal_badge_class = "badge-score-good" %}
+                {% elif row.deal_score >= 45 %}{% set deal_badge_class = "badge-score-medium" %}
+                {% else %}{% set deal_badge_class = "badge-score-low" %}{% endif %}
+                <div class="col-md-6 col-xl-4">
+                    <div class="border rounded p-3 h-100 bg-white">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                            <div class="fw-semibold">{{ row.title or "-" }}</div>
+                            <div class="text-end">
+                                <div class="fw-semibold">{{ row.price_asked|price }}</div>
+                                <small class="text-muted">Preț cerut</small>
                             </div>
                         </div>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
+                            <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
+                            <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            {% if row.condition == "used" %}<span class="badge badge-condition-used">Second-hand</span>
+                            {% elif row.condition == "new" %}<span class="badge badge-condition-new">Nou</span>
+                            {% else %}<span class="badge text-bg-secondary">Condiție necunoscută</span>{% endif %}
+                            <span class="badge text-bg-light">Preț recomandat: {{ row.recommended_price|price }}</span>
+                            {% if row.deal_score is not none %}
+                                <span class="badge {{ deal_badge_class }}">Scor ofertă: {{ row.deal_score }}</span>
+                            {% else %}
+                                <span class="badge badge-score-na">Scor ofertă: N/A</span>
+                            {% endif %}
+                        </div>
+                        {% if row.description %}
+                            <div class="small text-muted mb-3">{{ row.description[:140] }}{% if row.description|length > 140 %}...{% endif %}</div>
+                        {% endif %}
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                {% if row.id in favorite_listing_ids %}
+                                    <span class="badge text-bg-success">Salvat la favorite</span>
+                                {% else %}
+                                    <form method="post" action="{{ url_for('main.add_to_favorites') }}" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="listing_id" value="{{ row.id }}">
+                                        <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">Adaugă la favorite</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                            {% if row.evaluation_token %}
+                                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.evaluation_token) }}">Vezi evaluarea</a>
+                            {% endif %}
+                        </div>
                     </div>
-                {% endfor %}
-            </div>
+                </div>
+            {% endfor %}
         </div>
     </div>
-    {% endif %}
-
-    <div class="row g-3">
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Produse analizate</h6>
-                    <div class="fs-3 fw-bold">{{ summary.total_products }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Second-hand</h6>
-                    <div class="fs-3 fw-bold">{{ summary.used_count }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Produse noi</h6>
-                    <div class="fs-3 fw-bold">{{ summary.new_count }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Branduri distincte</h6>
-                    <div class="fs-3 fw-bold">{{ summary.distinct_brands }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-{% else %}
-    <div class="p-4 p-md-5 mb-4 bg-light rounded-3">
-        <div class="container-fluid py-3">
-            <h1 class="display-6 fw-bold">Platformă de evaluare pentru produse IT</h1>
-            <p class="col-md-9 fs-5">
-                Prototip Flask pentru estimarea prețului corect, a deprecierii și a atractivității unui anunț,
-                folosind date reale colectate din piață.
-            </p>
-            <a class="btn btn-primary btn-lg" href="{{ url_for('main.evaluate') }}">Începe evaluarea</a>
-        </div>
-    </div>
-
-    <div class="row g-3">
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Produse analizate</h6>
-                    <div class="fs-3 fw-bold">{{ summary.total_products }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Second-hand</h6>
-                    <div class="fs-3 fw-bold">{{ summary.used_count }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Produse noi</h6>
-                    <div class="fs-3 fw-bold">{{ summary.new_count }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted">Branduri distincte</h6>
-                    <div class="fs-3 fw-bold">{{ summary.distinct_brands }}</div>
-                </div>
-            </div>
-        </div>
-    </div>
+</div>
 {% endif %}
+
+{# ───────────────────────────────────────────────
+   NEAUTENTIFICAT — LANDING PAGE
+─────────────────────────────────────────────── #}
+{% else %}
+
+{# Hero #}
+<div class="home-hero">
+    <div class="home-hero__inner">
+        <p class="home-hero__tag"><i class="bi bi-stars me-1"></i>Platformă de analiză a prețurilor</p>
+        <h1 class="home-hero__title">Analizează valoarea laptopurilor<br>pe baza datelor reale din piață</h1>
+        <p class="home-hero__sub">
+            Estimează prețuri corecte bazate pe date reale, compară anunțuri existente și ia decizii
+            informate. Platforma ta de încredere pentru cumpărări și vânzări de laptopuri.
+        </p>
+        <div class="home-hero__actions">
+            <a class="btn btn-primary btn-lg" href="{{ url_for('main.evaluate') }}">Evaluează un laptop</a>
+            <a class="btn btn-outline-secondary btn-lg" href="{{ url_for('main.explore') }}">Explorează piața</a>
+        </div>
+    </div>
+</div>
+
+{# Statistici platformă #}
+<section class="home-stats">
+    <div class="text-center mb-4">
+        <h2 class="home-section-title">Statistici platformă</h2>
+        <p class="home-section-sub">Date actualizate în timp real din piața de laptopuri</p>
+    </div>
+    <div class="home-stats__grid home-stats__grid--4">
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#9b6fa5,#c084d4);">
+                <i class="bi bi-box-seam-fill"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.total_products }}</div>
+            <div class="home-stat-card__label">Produse analizate</div>
+        </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#e96b8a,#f0a0b5);">
+                <i class="bi bi-recycle"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.used_count }}</div>
+            <div class="home-stat-card__label">Produse second-hand</div>
+        </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5b8dee,#93b5f6);">
+                <i class="bi bi-bag-fill"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.new_count }}</div>
+            <div class="home-stat-card__label">Produse noi</div>
+        </div>
+        <div class="home-stat-card">
+            <div class="home-stat-card__icon" style="background: linear-gradient(135deg,#5ba89e,#86cdc6);">
+                <i class="bi bi-award-fill"></i>
+            </div>
+            <div class="home-stat-card__value">{{ summary.distinct_brands }}</div>
+            <div class="home-stat-card__label">Branduri distincte</div>
+        </div>
+    </div>
+</section>
+
+{# Trei perspective #}
+<section class="home-roles">
+    <div class="text-center mb-4">
+        <h2 class="home-section-title">Trei perspective, o platformă</h2>
+        <p class="home-section-sub">Indiferent dacă cumperi, vinzi sau administrezi, IT Resell îți oferă instrumentele necesare</p>
+    </div>
+    <div class="home-roles__grid">
+        <div class="home-role-card">
+            <div class="home-role-card__icon" style="background: linear-gradient(135deg,#9b6fa5,#c084d4);">
+                <i class="bi bi-cart-fill"></i>
+            </div>
+            <h3 class="home-role-card__title">Buyer</h3>
+            <p class="home-role-card__desc">Caută și compară laptopuri, explorează piața, salvează anunțuri favorite și primește sugestii personalizate.</p>
+            <ul class="home-role-card__list">
+                <li><i class="bi bi-check2"></i> Compară prețuri din multiple surse</li>
+                <li><i class="bi bi-check2"></i> Primește sugestii personalizate</li>
+                <li><i class="bi bi-check2"></i> Explorează produse din piață</li>
+                <li><i class="bi bi-check2"></i> Salvează laptopuri favorite</li>
+            </ul>
+        </div>
+        <div class="home-role-card">
+            <div class="home-role-card__icon" style="background: linear-gradient(135deg,#e96b8a,#f0a0b5);">
+                <i class="bi bi-tag-fill"></i>
+            </div>
+            <h3 class="home-role-card__title">Seller</h3>
+            <p class="home-role-card__desc">Publică anunțuri, evaluează prețul corect bazat pe piață, gestionează listările și primește sugestii de preț competitive.</p>
+            <ul class="home-role-card__list">
+                <li><i class="bi bi-check2"></i> Evaluare automată a prețului</li>
+                <li><i class="bi bi-check2"></i> Publicare simplă de anunțuri</li>
+                <li><i class="bi bi-check2"></i> Sugestii bazate pe piață</li>
+                <li><i class="bi bi-check2"></i> Gestionare ușoară a listărilor</li>
+            </ul>
+        </div>
+        <div class="home-role-card">
+            <div class="home-role-card__icon" style="background: linear-gradient(135deg,#5b8dee,#93b5f6);">
+                <i class="bi bi-shield-fill"></i>
+            </div>
+            <h3 class="home-role-card__title">Admin</h3>
+            <p class="home-role-card__desc">Monitorizează platforma, analizează tendințe de piață, verifică date și gestionează calitatea informațiilor din sistem.</p>
+            <ul class="home-role-card__list">
+                <li><i class="bi bi-check2"></i> Dashboard cu indicatori platformă</li>
+                <li><i class="bi bi-check2"></i> Analiză date și grafice</li>
+                <li><i class="bi bi-check2"></i> Istoric global al evaluărilor</li>
+                <li><i class="bi bi-check2"></i> Monitorizare utilizatori și anunțuri</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+{% endif %}
+
+{# ───────────────────────────────────────────────
+   FOOTER — vizibil pe toate variantele
+─────────────────────────────────────────────── #}
+{% endblock %}
+
+{% block footer %}
+<footer class="home-footer">
+    <div class="home-footer__inner">
+        <div class="home-footer__brand">
+            <div class="home-footer__logo">IT Resell</div>
+            <p class="home-footer__tagline">Platforma ta de încredere pentru analiza<br>și tranzacționarea laptopurilor second-hand și noi.</p>
+        </div>
+        <div class="home-footer__col">
+            <div class="home-footer__col-title">Platformă</div>
+            <a href="{{ url_for('main.evaluate') }}">Evaluare</a>
+            <a href="{{ url_for('main.explore') }}">Explorează</a>
+            <a href="{{ url_for('main.listings') }}">Anunțuri</a>
+            {% if current_user.is_authenticated %}
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('main.admin_dashboard') }}">Dashboard admin</a>
+                {% elif current_user.is_seller %}
+                    <a href="{{ url_for('main.profile') }}">Dashboard seller</a>
+                {% elif current_user.is_buyer %}
+                    <a href="{{ url_for('main.favorites') }}">Favorite</a>
+                {% endif %}
+            {% else %}
+                <a href="{{ url_for('auth.login') }}">Autentificare</a>
+            {% endif %}
+        </div>
+        <div class="home-footer__col">
+            <div class="home-footer__col-title">Tehnologii</div>
+            <span>Python · Flask</span>
+            <span>SQLite · SQLAlchemy</span>
+            <span>Bootstrap 5 · Chart.js</span>
+            <span>Playwright · BeautifulSoup</span>
+        </div>
+        <div class="home-footer__col">
+            <div class="home-footer__col-title">Date & Surse</div>
+            <span>Publi24.ro</span>
+            <span>PCGarage.ro</span>
+            <span>{{ summary.total_products }} produse analizate</span>
+            <span>Actualizat zilnic</span>
+        </div>
+    </div>
+    <div class="home-footer__bottom">
+        <span>© 2026 IT Resell. Proiect de licență - Platformă de analiză a prețurilor laptopurilor</span>
+    </div>
+</footer>
 {% endblock %}

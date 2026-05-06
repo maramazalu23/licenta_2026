@@ -742,7 +742,11 @@ def explore():
         "ram": request.args.get("ram", "").strip(),
         "condition": request.args.get("condition", "").strip(),
         "source": request.args.get("source", "").strip(),
+        "sort": request.args.get("sort", "price_asc").strip(),
     }
+
+    if selected["sort"] not in {"price_asc", "price_desc"}:
+        selected["sort"] = "price_asc"
 
     data = get_explore_products(
         brand=selected["brand"] or None,
@@ -751,6 +755,7 @@ def explore():
         condition=selected["condition"] or None,
         source=selected["source"] or None,
         limit=60,
+        sort=selected["sort"],
     )
 
     return render_template(

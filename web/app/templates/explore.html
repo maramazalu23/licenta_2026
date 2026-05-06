@@ -3,166 +3,294 @@
 {% block title %}Explore{% endblock %}
 
 {% block content %}
-<div class="row g-4">
-    <div class="col-lg-3">
-        <div class="card shadow-sm sticky-top explore-filter-card">
-            <div class="card-body">
-                <h2 class="h5 mb-3">Filtre</h2>
-
-                <form method="get">
-                    <div class="mb-3">
-                        <label class="form-label">Brand</label>
-                        <select name="brand" class="form-select">
-                            <option value="">-- toate --</option>
-                            {% for brand in filters.brands %}
-                                <option value="{{ brand }}" {% if selected.brand == brand %}selected{% endif %}>{{ brand }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Familie model</label>
-                        <select name="family" class="form-select">
-                            <option value="">-- toate --</option>
-                            {% for family in filters.families %}
-                                <option value="{{ family }}" {% if selected.family == family %}selected{% endif %}>{{ family }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">RAM (GB)</label>
-                        <select name="ram" class="form-select">
-                            <option value="">-- toate --</option>
-                            {% for ram in filters.ram_options %}
-                                <option value="{{ ram }}" {% if selected.ram == (ram|string) %}selected{% endif %}>{{ ram }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Condiție</label>
-                        <select name="condition" class="form-select">
-                            <option value="">-- toate --</option>
-                            <option value="used" {% if selected.condition == "used" %}selected{% endif %}>Second-hand</option>
-                            <option value="new" {% if selected.condition == "new" %}selected{% endif %}>Nou</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Sursă</label>
-                        <select name="source" class="form-select">
-                            <option value="">-- toate --</option>
-                            {% for source in filters.sources %}
-                                <option value="{{ source }}" {% if selected.source == source %}selected{% endif %}>{{ source }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Aplică filtrele</button>
-                        <a href="{{ url_for('main.explore') }}" class="btn btn-outline-secondary">Resetează</a>
-                    </div>
-                </form>
-            </div>
+<div class="explore-page-header">
+    <div class="explore-header-row">
+        <div>
+            <h1 class="explore-page-title">Explorează piața</h1>
+            <p class="explore-page-subtitle">
+                Analizează laptopuri colectate din surse externe și compară prețurile pe baza filtrelor selectate.
+            </p>
         </div>
+
+        <form method="get" class="explore-sort-toggle">
+            <input type="hidden" name="brand" value="{{ selected.brand }}">
+            <input type="hidden" name="family" value="{{ selected.family }}">
+            <input type="hidden" name="ram" value="{{ selected.ram }}">
+            <input type="hidden" name="condition" value="{{ selected.condition }}">
+            <input type="hidden" name="source" value="{{ selected.source }}">
+
+            <button
+                type="submit"
+                name="sort"
+                value="price_asc"
+                class="explore-sort-btn {% if selected.sort == 'price_asc' %}active{% endif %}"
+            >
+                <i class="bi bi-sort-down"></i>
+                Preț crescător
+            </button>
+
+            <button
+                type="submit"
+                name="sort"
+                value="price_desc"
+                class="explore-sort-btn {% if selected.sort == 'price_desc' %}active{% endif %}"
+            >
+                <i class="bi bi-sort-up"></i>
+                Preț descrescător
+            </button>
+        </form>
     </div>
+</div>
 
-    <div class="col-lg-9">
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h1 class="h4 mb-2">Explorare bază de produse</h1>
-                <p class="text-muted mb-3">
-                    Această pagină este pentru analiză de piață și comparație cu surse externe. Favoritele buyerului se salvează din anunțurile publicate în platformă.
-                </p>
+<div class="explore-layout">
+    <aside class="explore-sidebar">
+        <div class="explore-filter-panel">
+            <div class="explore-filter-title">
+                <i class="bi bi-funnel"></i>
+                <span>Filtre</span>
+            </div>
 
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <div class="border rounded p-3 h-100">
-                            <div class="text-muted small">Rezultate</div>
-                            <div class="fs-4 fw-bold">{{ data.count }}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="border rounded p-3 h-100">
-                            <div class="text-muted small">Mediană</div>
-                            <div class="fs-4 fw-bold">{{ data.stats.median|price }}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="border rounded p-3 h-100">
-                            <div class="text-muted small">Q1</div>
-                            <div class="fs-4 fw-bold">{{ data.stats.q1|price }}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="border rounded p-3 h-100">
-                            <div class="text-muted small">Q3</div>
-                            <div class="fs-4 fw-bold">{{ data.stats.q3|price }}</div>
-                        </div>
-                    </div>
+            <form method="get">
+                <input type="hidden" name="sort" value="{{ selected.sort }}">
+                <div class="explore-filter-group">
+                    <label class="form-label">Brand</label>
+                    <select name="brand" class="form-select explore-input">
+                        <option value="">Toate brandurile</option>
+                        {% for brand in filters.brands %}
+                            <option value="{{ brand }}" {% if selected.brand == brand %}selected{% endif %}>
+                                {{ brand }}
+                            </option>
+                        {% endfor %}
+                    </select>
                 </div>
+
+                <div class="explore-filter-group">
+                    <label class="form-label">Familie model</label>
+                    <select name="family" class="form-select explore-input">
+                        <option value="">Toate familiile</option>
+                        {% for family in filters.families %}
+                            <option value="{{ family }}" {% if selected.family == family %}selected{% endif %}>
+                                {{ family }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="explore-filter-group">
+                    <label class="form-label">RAM</label>
+                    <select name="ram" class="form-select explore-input">
+                        <option value="">Toate variantele</option>
+                        {% for ram in filters.ram_options %}
+                            <option value="{{ ram }}" {% if selected.ram == (ram|string) %}selected{% endif %}>
+                                {{ ram }} GB
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="explore-filter-group">
+                    <label class="form-label">Condiție</label>
+                    <select name="condition" class="form-select explore-input">
+                        <option value="">Toate</option>
+                        <option value="used" {% if selected.condition == "used" %}selected{% endif %}>Second-hand</option>
+                        <option value="new" {% if selected.condition == "new" %}selected{% endif %}>Nou</option>
+                    </select>
+                </div>
+
+                <div class="explore-filter-group">
+                    <label class="form-label">Sursă</label>
+                    <select name="source" class="form-select explore-input">
+                        <option value="">Toate sursele</option>
+                        {% for source in filters.sources %}
+                            <option value="{{ source }}" {% if selected.source == source %}selected{% endif %}>
+                                {{ source }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="explore-filter-actions">
+                    <button type="submit" class="btn btn-primary w-100">
+                        Aplică filtrele
+                    </button>
+                    <a href="{{ url_for('main.explore') }}" class="btn btn-outline-secondary w-100">
+                        Resetează
+                    </a>
+                </div>
+            </form>
+        </div>
+    </aside>
+
+    <section class="explore-main">
+        <div class="explore-stats-card">
+            <div class="explore-card-heading">
+                <div>
+                    <h2>
+                        <i class="bi bi-graph-up-arrow"></i>
+                        Statistici prețuri
+                    </h2>
+                    <p>Indicatori calculați pentru produsele afișate în urma filtrării.</p>
+                </div>
+                <span class="explore-count-pill">{{ data.count }} rezultate</span>
+            </div>
+
+            <div class="explore-stats-grid">
+                <div class="explore-stat-box explore-stat-box--min">
+                    <strong>{{ data.stats.min|price }}</strong>
+                    <span>Min</span>
+                </div>
+
+                <div class="explore-stat-box explore-stat-box--q1">
+                    <strong>{{ data.stats.q1|price }}</strong>
+                    <span>Q1</span>
+                </div>
+
+                <div class="explore-stat-box explore-stat-box--median">
+                    <strong>{{ data.stats.median|price }}</strong>
+                    <span>Mediană</span>
+                </div>
+
+                <div class="explore-stat-box explore-stat-box--q3">
+                    <strong>{{ data.stats.q3|price }}</strong>
+                    <span>Q3</span>
+                </div>
+
+                <div class="explore-stat-box explore-stat-box--max">
+                    <strong>{{ data.stats.max|price }}</strong>
+                    <span>Max</span>
+                </div>
+            </div>
+
+            <div class="explore-stats-note">
+                Statisticile sunt calculate pe baza produselor vizibile după aplicarea filtrelor curente.
             </div>
         </div>
 
         {% if data.products %}
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h2 class="h5 mb-3">Produse</h2>
-
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Titlu</th>
-                                    <th>Brand</th>
-                                    <th>Familie</th>
-                                    <th>RAM</th>
-                                    <th>Condiție</th>
-                                    <th>Sursă</th>
-                                    <th>Preț (RON)</th>
-                                    <th>Link</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for p in data.products %}
-                                    <tr>
-                                        <td>{{ p.title or "-" }}</td>
-                                        <td>{{ p.brand or "-" }}</td>
-                                        <td>{{ p.model_family or "-" }}</td>
-                                        <td>{{ p.ram_gb or "-" }}</td>
-                                        <td>
-                                            {% if p.condition == "used" %}
-                                                Second-hand
-                                            {% elif p.condition == "new" %}
-                                                Nou
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ p.source or "-" }}</td>
-                                        <td>{{ p.price_ron|price }}</td>
-                                        <td>
-                                            {% if p.url %}
-                                                <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Deschide</a>
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+            <div class="explore-results-toolbar">
+                <div>
+                    <h2 class="h5 mb-1">Produse găsite</h2>
+                    <p class="text-muted mb-0">Afișare {{ data.count }} produse, ordonate crescător după preț.</p>
                 </div>
+            </div>
+
+            <div class="explore-products-grid">
+                {% for p in data.products %}
+                    <article class="explore-product-card">
+                        <div class="explore-product-top">
+                            <div>
+                                <h3 class="explore-product-title">
+                                    {% if p.url %}
+                                        <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">
+                                            {{ p.title or "-" }}
+                                        </a>
+                                    {% else %}
+                                        {{ p.title or "-" }}
+                                    {% endif %}
+                                </h3>
+
+                                <div class="explore-product-badges">
+                                    {% if p.condition == "used" %}
+                                        <span class="badge badge-condition-used">Second-hand</span>
+                                    {% elif p.condition == "new" %}
+                                        <span class="badge badge-condition-new">Nou</span>
+                                    {% else %}
+                                        <span class="badge text-bg-secondary">Condiție necunoscută</span>
+                                    {% endif %}
+
+                                    <span class="badge text-bg-light">{{ p.source or "-" }}</span>
+                                </div>
+                            </div>
+
+                            {% if p.url %}
+                                <a
+                                    href="{{ p.url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="explore-external-link"
+                                    title="Deschide sursa"
+                                >
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                            {% endif %}
+                        </div>
+
+                        <div class="explore-product-info-grid">
+                            <div>
+                                <span>Brand</span>
+                                <strong>{{ p.brand or "-" }}</strong>
+                            </div>
+
+                            <div>
+                                <span>Familie</span>
+                                <strong>{{ p.model_family or "-" }}</strong>
+                            </div>
+                        </div>
+
+                        <div class="explore-product-specs">
+                            <span>
+                                <i class="bi bi-memory"></i>
+                                {{ p.ram_gb or "-" }} GB RAM
+                            </span>
+
+                            {% if p.cpu %}
+                                <span>
+                                    <i class="bi bi-cpu"></i>
+                                    {{ p.cpu }}
+                                </span>
+                            {% endif %}
+
+                            {% if p.storage %}
+                                <span>
+                                    <i class="bi bi-device-hdd"></i>
+                                    {{ p.storage }}
+                                </span>
+                            {% endif %}
+
+                            {% if p.gpu %}
+                                <span>
+                                    <i class="bi bi-gpu-card"></i>
+                                    {{ p.gpu }}
+                                </span>
+                            {% endif %}
+
+                            {% if p.screen_in %}
+                                <span>
+                                    <i class="bi bi-display"></i>
+                                    {{ p.screen_in }}"
+                                </span>
+                            {% endif %}
+                        </div>
+
+                        <div class="explore-product-footer">
+                            <div>
+                                <span class="explore-price-label">Preț</span>
+                                <div class="explore-product-price">{{ p.price_ron|price }}</div>
+                            </div>
+
+                            {% if p.url %}
+                                <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
+                                    Detalii
+                                </a>
+                            {% else %}
+                                <span class="text-muted small">Fără link</span>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
             </div>
         {% else %}
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <p class="text-muted mb-0">Nu există produse pentru filtrele selectate.</p>
+            <div class="explore-empty-card">
+                <div class="explore-empty-icon">
+                    <i class="bi bi-search"></i>
                 </div>
+                <h2>Nu există produse pentru filtrele selectate</h2>
+                <p>Încearcă să alegi mai puține filtre sau să resetezi căutarea pentru a vedea mai multe rezultate.</p>
+                <a href="{{ url_for('main.explore') }}" class="btn btn-primary">
+                    Resetează filtrele
+                </a>
             </div>
         {% endif %}
-    </div>
+    </section>
 </div>
 {% endblock %}
