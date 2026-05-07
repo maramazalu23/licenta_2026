@@ -3,147 +3,249 @@
 {% block title %}Istoric global evaluări{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <h1 class="h4 mb-3">Istoric global evaluări</h1>
-
-        <form method="get" class="row g-3">
-            <div class="col-md-3">
-                <label class="form-label">Brand</label>
-                <select name="brand" class="form-select">
-                    <option value="">-- toate --</option>
-                    {% for brand in filters.brands %}
-                        <option value="{{ brand }}" {% if selected.brand == brand %}selected{% endif %}>{{ brand }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="col-md-3">
-                <label class="form-label">Condiție</label>
-                <select name="condition" class="form-select">
-                    <option value="">-- toate --</option>
-                    <option value="used" {% if selected.condition == "used" %}selected{% endif %}>Second-hand</option>
-                    <option value="new" {% if selected.condition == "new" %}selected{% endif %}>Nou</option>
-                </select>
-            </div>
-
-            <div class="col-md-2">
-                <label class="form-label">De la data</label>
-                <input type="date" name="date_from" class="form-control" value="{{ selected.date_from }}">
-            </div>
-
-            <div class="col-md-2">
-                <label class="form-label">Până la data</label>
-                <input type="date" name="date_to" class="form-control" value="{{ selected.date_to }}">
-            </div>
-
-            <div class="col-md-2 d-flex align-items-end">
-                <div class="d-grid gap-2 w-100">
-                    <button type="submit" class="btn btn-primary">Aplică</button>
-                    <a href="{{ url_for('main.admin_history') }}" class="btn btn-outline-secondary">Resetează</a>
-                </div>
-            </div>
-        </form>
+<div class="history-page-header">
+    <div class="history-title-wrap">
+        <div class="history-title-icon">
+            <i class="bi bi-shield-check"></i>
+        </div>
+        <div>
+            <h1 class="history-page-title">Istoric global evaluări</h1>
+            <p class="history-page-subtitle">
+                Vizualizează toate evaluările salvate în platformă și filtrează rezultatele după brand, condiție sau interval de timp.
+            </p>
+        </div>
     </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        {% if rows %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle table-clean">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Token</th>
-                            <th>User</th>
-                            <th>Titlu</th>
-                            <th>Brand</th>
-                            <th>Familie</th>
-                            <th>Condiție</th>
-                            <th>Preț cerut</th>
-                            <th>Preț recomandat</th>
-                            <th>Scor ofertă</th>
-                            <th>Scor atractivitate</th>
-                            <th>Detalii</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in rows %}
-                            {% if row.deal_score is none %}
-                                {% set deal_badge_class = "badge-score-na" %}
-                            {% elif row.deal_score >= 85 %}
-                                {% set deal_badge_class = "badge-score-excellent" %}
-                            {% elif row.deal_score >= 65 %}
-                                {% set deal_badge_class = "badge-score-good" %}
-                            {% elif row.deal_score >= 45 %}
-                                {% set deal_badge_class = "badge-score-medium" %}
-                            {% else %}
-                                {% set deal_badge_class = "badge-score-low" %}
-                            {% endif %}
+<div class="admin-history-filter-card">
+    <div class="admin-history-filter-header">
+        <div>
+            <h2>Filtrează evaluările</h2>
+            <p>Selectează criteriile dorite pentru istoricul global.</p>
+        </div>
 
-                            {% if row.attractiveness_score is none %}
-                                {% set attr_badge_class = "badge-score-na" %}
-                            {% elif row.attractiveness_score >= 85 %}
-                                {% set attr_badge_class = "badge-score-excellent" %}
-                            {% elif row.attractiveness_score >= 65 %}
-                                {% set attr_badge_class = "badge-score-good" %}
-                            {% elif row.attractiveness_score >= 45 %}
-                                {% set attr_badge_class = "badge-score-medium" %}
-                            {% else %}
-                                {% set attr_badge_class = "badge-score-low" %}
-                            {% endif %}
-
-                            <tr>
-                                <td>{{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}</td>
-                                <td class="token-cell"><code>{{ row.token }}</code></td>
-                                <td>{{ row.user_email or "-" }}</td>
-                                <td>{{ row.title or "-" }}</td>
-                                <td>{{ row.brand or "-" }}</td>
-                                <td>{{ row.model_family or "-" }}</td>
-
-                                <td>
-                                    {% if row.condition == "used" %}
-                                        <span class="badge badge-condition-used">Second-hand</span>
-                                    {% elif row.condition == "new" %}
-                                        <span class="badge badge-condition-new">Nou</span>
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-
-                                <td>{{ row.price_asked|price }}</td>
-                                <td>{{ row.recommended_price|price }}</td>
-
-                                <td>
-                                    {% if row.deal_score is not none %}
-                                        <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}</span>
-                                    {% else %}
-                                        <span class="badge badge-score-na">N/A</span>
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    {% if row.attractiveness_score is not none %}
-                                        <span class="badge {{ attr_badge_class }}">{{ row.attractiveness_score }}</span>
-                                    {% else %}
-                                        <span class="badge badge-score-na">N/A</span>
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.token) }}">
-                                        Vezi
-                                    </a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <p class="text-muted mb-0">Nu există evaluări pentru filtrele selectate.</p>
+        {% if selected.brand or selected.condition or selected.date_from or selected.date_to %}
+            <span class="admin-history-active-filter">
+                <i class="bi bi-funnel-fill"></i>
+                Filtre active
+            </span>
         {% endif %}
     </div>
+
+    <form method="get" class="admin-history-filter-form">
+        <div>
+            <label class="form-label">Brand</label>
+            <select name="brand" class="form-select admin-history-input">
+                <option value="">Toate brandurile</option>
+                {% for brand in filters.brands %}
+                    <option value="{{ brand }}" {% if selected.brand == brand %}selected{% endif %}>
+                        {{ brand }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label">Condiție</label>
+            <select name="condition" class="form-select admin-history-input">
+                <option value="">Toate condițiile</option>
+                <option value="used" {% if selected.condition == "used" %}selected{% endif %}>Second-hand</option>
+                <option value="new" {% if selected.condition == "new" %}selected{% endif %}>Nou</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label">De la data</label>
+            <input type="date" name="date_from" class="form-control admin-history-input" value="{{ selected.date_from }}">
+        </div>
+
+        <div>
+            <label class="form-label">Până la data</label>
+            <input type="date" name="date_to" class="form-control admin-history-input" value="{{ selected.date_to }}">
+        </div>
+
+        <div class="admin-history-filter-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-funnel"></i>
+                Aplică
+            </button>
+            <a href="{{ url_for('main.admin_history') }}" class="btn btn-outline-secondary">
+                Resetează
+            </a>
+        </div>
+    </form>
 </div>
+
+<div class="history-table-card">
+    <div class="history-table-toolbar">
+        <div>
+            <span class="history-count-text">
+                Afișare <strong>{{ rows|length }}</strong> evaluări
+            </span>
+        </div>
+
+        <span class="history-static-info">
+            <i class="bi bi-clock"></i>
+            Ordonate după data evaluării
+        </span>
+    </div>
+
+    {% if rows %}
+        <div class="history-table-scroll">
+            <table class="history-modern-table admin-history-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>User</th>
+                        <th>Titlu</th>
+                        <th>Brand</th>
+                        <th>Familie</th>
+                        <th>Condiție</th>
+                        <th>Preț cerut</th>
+                        <th>Preț recomandat</th>
+                        <th>Scor preț</th>
+                        <th>Atractivitate</th>
+                        <th>Detalii</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in rows %}
+                        {% if row.deal_score is none %}
+                            {% set deal_badge_class = "badge-score-na" %}
+                        {% elif row.deal_score >= 85 %}
+                            {% set deal_badge_class = "badge-score-excellent" %}
+                        {% elif row.deal_score >= 65 %}
+                            {% set deal_badge_class = "badge-score-good" %}
+                        {% elif row.deal_score >= 45 %}
+                            {% set deal_badge_class = "badge-score-medium" %}
+                        {% else %}
+                            {% set deal_badge_class = "badge-score-low" %}
+                        {% endif %}
+
+                        {% if row.attractiveness_score is none %}
+                            {% set attr_badge_class = "badge-score-na" %}
+                        {% elif row.attractiveness_score >= 85 %}
+                            {% set attr_badge_class = "badge-score-excellent" %}
+                        {% elif row.attractiveness_score >= 65 %}
+                            {% set attr_badge_class = "badge-score-good" %}
+                        {% elif row.attractiveness_score >= 45 %}
+                            {% set attr_badge_class = "badge-score-medium" %}
+                        {% else %}
+                            {% set attr_badge_class = "badge-score-low" %}
+                        {% endif %}
+
+                        <tr>
+                            <td class="history-date-cell">
+                                {{ row.created_at.strftime("%d.%m.%Y") if row.created_at else "-" }}
+                                {% if row.created_at %}
+                                    <span>{{ row.created_at.strftime("%H:%M") }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="admin-history-user-cell">
+                                <div class="admin-history-user-wrap">
+                                    <div class="admin-history-user-avatar">
+                                        {{ (row.user_email or "U")[:1]|upper }}
+                                    </div>
+
+                                    <span class="admin-history-email-short" title="{{ row.user_email or 'utilizator necunoscut' }}">
+                                        {{ row.user_email or "utilizator necunoscut" }}
+                                    </span>
+                                </div>
+                            </td>
+
+                            <td class="history-title-cell">
+                                {{ row.title or "-" }}
+                            </td>
+
+                            <td>{{ row.brand or "-" }}</td>
+                            <td>{{ row.model_family or "-" }}</td>
+
+                            <td>
+                                {% if row.condition == "used" %}
+                                    <span class="badge badge-condition-used">Second-hand</span>
+                                {% elif row.condition == "new" %}
+                                    <span class="badge badge-condition-new">Nou</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">Necunoscut</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="history-price-cell">
+                                {{ row.price_asked|price }}
+
+                                {% if row.price_warning and row.price_warning.is_warning %}
+                                    <div class="price-warning-inline" title="{{ row.price_warning.message }}">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        Sub 50%
+                                    </div>
+                                {% endif %}
+                            </td>
+
+                            <td class="history-price-cell history-price-cell--recommended">
+                                {{ row.recommended_price|price }}
+                            </td>
+
+                            <td>
+                                {% if row.deal_score is not none %}
+                                    <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}/100</span>
+                                {% else %}
+                                    <span class="badge badge-score-na">N/A</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if row.attractiveness_score is not none %}
+                                    <span class="badge {{ attr_badge_class }}">{{ row.attractiveness_score }}/100</span>
+                                {% else %}
+                                    <span class="badge badge-score-na">N/A</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary history-details-btn" href="{{ url_for('main.result_page', token=row.token) }}">
+                                    <i class="bi bi-eye"></i>
+                                    Vezi
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="history-empty-card">
+            <div class="history-empty-icon">
+                <i class="bi bi-search"></i>
+            </div>
+            <h2>Nu există evaluări pentru filtrele selectate</h2>
+            <p>Încearcă să modifici brandul, condiția sau intervalul de date.</p>
+            <a href="{{ url_for('main.admin_history') }}" class="btn btn-primary">
+                Resetează filtrele
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<section class="history-info-card">
+    <h2>Despre istoricul global</h2>
+
+    <div class="history-info-grid">
+        <div>
+            <strong>Vizualizare administrativă:</strong>
+            <span>Adminul poate consulta toate evaluările salvate în platformă, indiferent de utilizator.</span>
+        </div>
+
+        <div>
+            <strong>Filtrare rapidă:</strong>
+            <span>Evaluările pot fi filtrate după brand, condiție și interval de timp pentru verificări punctuale.</span>
+        </div>
+
+        <div>
+            <strong>Acces la detalii:</strong>
+            <span>Butonul „Vezi” deschide pagina completă a evaluării, cu preț recomandat, scoruri și explicații.</span>
+        </div>
+    </div>
+</section>
 {% endblock %}

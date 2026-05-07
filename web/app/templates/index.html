@@ -192,6 +192,13 @@
                             {% else %}
                                 <span class="badge badge-score-na">Scor ofertă: N/A</span>
                             {% endif %}
+
+                            {% if row.price_warning and row.price_warning.is_warning %}
+                                <span class="badge badge-price-warning" title="{{ row.price_warning.message }}">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    {{ row.price_warning.label }}
+                                </span>
+                            {% endif %}
                         </div>
                         {% if row.description %}
                             <div class="small text-muted mb-3">{{ row.description[:140] }}{% if row.description|length > 140 %}...{% endif %}</div>

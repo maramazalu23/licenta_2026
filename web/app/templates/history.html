@@ -3,107 +3,177 @@
 {% block title %}Istoric evaluări{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm">
-    <div class="card-body">
-        <h1 class="h4 mb-3">Istoric evaluări salvate</h1>
-
-        {% if rows %}
-            <div class="table-responsive history-table-wrapper">
-                <table class="table table-hover align-middle table-clean history-table">
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Token</th>
-                            <th>Titlu</th>
-                            <th>Brand</th>
-                            <th>Familie</th>
-                            <th>Condiție</th>
-                            <th>Preț cerut</th>
-                            <th>Preț recomandat</th>
-                            <th>Scor ofertă</th>
-                            <th>Scor atractivitate</th>
-                            <th>Detalii</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in rows %}
-                            {% if row.deal_score is none %}
-                                {% set deal_badge_class = "badge-score-na" %}
-                            {% elif row.deal_score >= 85 %}
-                                {% set deal_badge_class = "badge-score-excellent" %}
-                            {% elif row.deal_score >= 65 %}
-                                {% set deal_badge_class = "badge-score-good" %}
-                            {% elif row.deal_score >= 45 %}
-                                {% set deal_badge_class = "badge-score-medium" %}
-                            {% else %}
-                                {% set deal_badge_class = "badge-score-low" %}
-                            {% endif %}
-
-                            {% if row.attractiveness_score is none %}
-                                {% set attr_badge_class = "badge-score-na" %}
-                            {% elif row.attractiveness_score >= 85 %}
-                                {% set attr_badge_class = "badge-score-excellent" %}
-                            {% elif row.attractiveness_score >= 65 %}
-                                {% set attr_badge_class = "badge-score-good" %}
-                            {% elif row.attractiveness_score >= 45 %}
-                                {% set attr_badge_class = "badge-score-medium" %}
-                            {% else %}
-                                {% set attr_badge_class = "badge-score-low" %}
-                            {% endif %}
-
-                            <tr>
-                                <td>{{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}</td>
-
-                                <td class="token-cell">
-                                    <code>{{ row.token }}</code>
-                                </td>
-
-                                <td>{{ row.title or "-" }}</td>
-                                <td>{{ row.brand or "-" }}</td>
-                                <td>{{ row.model_family or "-" }}</td>
-
-                                <td>
-                                    {% if row.condition == "used" %}
-                                        <span class="badge badge-condition-used">Second-hand</span>
-                                    {% elif row.condition == "new" %}
-                                        <span class="badge badge-condition-new">Nou</span>
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-
-                                <td>{{ row.price_asked|price }}</td>
-                                <td>{{ row.recommended_price|price }}</td>
-
-                                <td>
-                                    {% if row.deal_score is not none %}
-                                        <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}</span>
-                                    {% else %}
-                                        <span class="badge badge-score-na">N/A</span>
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    {% if row.attractiveness_score is not none %}
-                                        <span class="badge {{ attr_badge_class }}">{{ row.attractiveness_score }}</span>
-                                    {% else %}
-                                        <span class="badge badge-score-na">N/A</span>
-                                    {% endif %}
-                                </td>
-
-                                <td>
-                                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.result_page', token=row.token) }}">
-                                        Vezi
-                                    </a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <p class="text-muted mb-0">Nu există încă evaluări salvate.</p>
-        {% endif %}
+<div class="history-page-header">
+    <div class="history-title-wrap">
+        <div class="history-title-icon">
+            <i class="bi bi-clock-history"></i>
+        </div>
+        <div>
+            <h1 class="history-page-title">Istoric evaluări salvate</h1>
+            <p class="history-page-subtitle">
+                Vizualizează toate evaluările salvate în contul tău și revino rapid la rezultatele generate anterior.
+            </p>
+        </div>
     </div>
 </div>
+
+<div class="history-table-card">
+    <div class="history-table-toolbar">
+        <div>
+            <span class="history-count-text">
+                Afișare <strong>{{ rows|length }}</strong> evaluări
+            </span>
+        </div>
+
+        <span class="history-static-info">
+            <i class="bi bi-clock"></i>
+            Ordonate după data evaluării
+        </span>
+    </div>
+
+    {% if rows %}
+        <div class="history-table-scroll">
+            <table class="history-modern-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Titlu</th>
+                        <th>Brand</th>
+                        <th>Familie</th>
+                        <th>Condiție</th>
+                        <th>Preț cerut</th>
+                        <th>Preț recomandat</th>
+                        <th>Scor preț</th>
+                        <th>Scor atractivitate</th>
+                        <th>Detalii</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in rows %}
+                        {% if row.deal_score is none %}
+                            {% set deal_badge_class = "badge-score-na" %}
+                        {% elif row.deal_score >= 85 %}
+                            {% set deal_badge_class = "badge-score-excellent" %}
+                        {% elif row.deal_score >= 65 %}
+                            {% set deal_badge_class = "badge-score-good" %}
+                        {% elif row.deal_score >= 45 %}
+                            {% set deal_badge_class = "badge-score-medium" %}
+                        {% else %}
+                            {% set deal_badge_class = "badge-score-low" %}
+                        {% endif %}
+
+                        {% if row.attractiveness_score is none %}
+                            {% set attr_badge_class = "badge-score-na" %}
+                        {% elif row.attractiveness_score >= 85 %}
+                            {% set attr_badge_class = "badge-score-excellent" %}
+                        {% elif row.attractiveness_score >= 65 %}
+                            {% set attr_badge_class = "badge-score-good" %}
+                        {% elif row.attractiveness_score >= 45 %}
+                            {% set attr_badge_class = "badge-score-medium" %}
+                        {% else %}
+                            {% set attr_badge_class = "badge-score-low" %}
+                        {% endif %}
+
+                        <tr>
+                            <td class="history-date-cell">
+                                {{ row.created_at.strftime("%d.%m.%Y") if row.created_at else "-" }}
+                                {% if row.created_at %}
+                                    <span>{{ row.created_at.strftime("%H:%M") }}</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="history-title-cell">
+                                {{ row.title or "-" }}
+                            </td>
+
+                            <td>{{ row.brand or "-" }}</td>
+                            <td>{{ row.model_family or "-" }}</td>
+
+                            <td>
+                                {% if row.condition == "used" %}
+                                    <span class="badge badge-condition-used">Second-hand</span>
+                                {% elif row.condition == "new" %}
+                                    <span class="badge badge-condition-new">Nou</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">Necunoscut</span>
+                                {% endif %}
+                            </td>
+
+                            <td class="history-price-cell">
+                                {{ row.price_asked|price }}
+
+                                {% if row.price_warning and row.price_warning.is_warning %}
+                                    <div class="price-warning-inline" title="{{ row.price_warning.message }}">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        Sub 50%
+                                    </div>
+                                {% endif %}
+                            </td>
+
+                            <td class="history-price-cell history-price-cell--recommended">
+                                {{ row.recommended_price|price }}
+                            </td>
+
+                            <td>
+                                {% if row.deal_score is not none %}
+                                    <span class="badge {{ deal_badge_class }}">{{ row.deal_score }}/100</span>
+                                {% else %}
+                                    <span class="badge badge-score-na">N/A</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if row.attractiveness_score is not none %}
+                                    <span class="badge {{ attr_badge_class }}">{{ row.attractiveness_score }}/100</span>
+                                {% else %}
+                                    <span class="badge badge-score-na">N/A</span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary history-details-btn" href="{{ url_for('main.result_page', token=row.token) }}">
+                                    <i class="bi bi-eye"></i>
+                                    Vezi
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="history-empty-card">
+            <div class="history-empty-icon">
+                <i class="bi bi-clipboard-x"></i>
+            </div>
+            <h2>Nu există încă evaluări salvate</h2>
+            <p>După ce evaluezi un laptop, rezultatul va apărea automat în această pagină.</p>
+            <a href="{{ url_for('main.evaluate') }}" class="btn btn-primary">
+                Evaluează un laptop
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<section class="history-info-card">
+    <h2>Despre istoricul evaluărilor</h2>
+
+    <div class="history-info-grid">
+        <div>
+            <strong>Token-uri unice:</strong>
+            <span>Fiecare evaluare primește un token unic, util pentru revenirea la rezultatul salvat.</span>
+        </div>
+
+        <div>
+            <strong>Acces rapid:</strong>
+            <span>Butonul „Vezi” redeschide pagina completă a evaluării, cu explicații și produse similare.</span>
+        </div>
+
+        <div>
+            <strong>Păstrare în cont:</strong>
+            <span>Evaluările autentificate rămân salvate în contul utilizatorului pentru consultare ulterioară.</span>
+        </div>
+    </div>
+</section>
 {% endblock %}

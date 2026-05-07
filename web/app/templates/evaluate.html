@@ -292,9 +292,19 @@
                     {% endif %}
                 </div>
 
+                {% if result.price_estimation.outputs.price_warning.is_warning %}
+                    <div class="price-warning-box">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <div>
+                            <strong>{{ result.price_estimation.outputs.price_warning.label }}</strong>
+                            <span>{{ result.price_estimation.outputs.price_warning.message }}</span>
+                        </div>
+                    </div>
+                {% endif %}
+
                 <div class="eval-info-grid">
                     <div>
-                        <span>Scor ofertă</span>
+                        <span>Scor preț</span>
                         <strong>
                             {{ result.price_estimation.outputs.deal_rating_score if result.price_estimation.outputs.deal_rating_score is not none else "N/A" }}
                         </strong>

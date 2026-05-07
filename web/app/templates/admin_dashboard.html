@@ -160,6 +160,12 @@
                                     <span class="badge badge-condition-new">Nou</span>
                                 {% endif %}
                             </div>
+                            {% if row.price_warning and row.price_warning.is_warning %}
+                                <div class="price-warning-inline" title="{{ row.price_warning.message }}">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    {{ row.price_warning.label }}
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="admin-row-score">
@@ -228,6 +234,12 @@
                                 <span class="badge text-bg-light">{{ row.brand or "-" }}</span>
                                 <span class="badge text-bg-light">{{ row.ram_gb or "-" }} GB</span>
                             </div>
+                            {% if row.price_warning and row.price_warning.is_warning %}
+                                <div class="price-warning-inline" title="{{ row.price_warning.message }}">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    {{ row.price_warning.label }}
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="admin-listing-price">

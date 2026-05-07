@@ -180,6 +180,39 @@ def _score_badge_class(score):
     return "bg-danger"
 
 
+def _build_price_warning(price_asked, recommended_price):
+    price_asked = _to_float(price_asked)
+    recommended_price = _to_float(recommended_price)
+
+    if price_asked is None or recommended_price is None or recommended_price <= 0:
+        return {
+            "is_warning": False,
+            "level": None,
+            "label": None,
+            "message": None,
+            "ratio": None,
+        }
+
+    ratio = price_asked / recommended_price
+
+    if ratio < 0.50:
+        return {
+            "is_warning": True,
+            "level": "very_low",
+            "label": "Preț neobișnuit de mic",
+            "message": "Prețul cerut este sub 50% din prețul recomandat. Poate fi o ofertă foarte bună, dar este recomandată verificarea atentă a produsului.",
+            "ratio": round(ratio, 2),
+        }
+
+    return {
+        "is_warning": False,
+        "level": None,
+        "label": None,
+        "message": None,
+        "ratio": round(ratio, 2),
+    }
+
+
 def _extract_allowed_families_for_brand(filters, brand):
     if not brand:
         return set()
@@ -280,6 +313,18 @@ def _normalize_saved_result(result, form_input=None):
     outputs.setdefault("deal_rating_label", "unknown")
     outputs.setdefault("deal_rating_score", None)
     outputs.setdefault("delta_vs_fair_price", None)
+
+    if not isinstance(outputs.get("price_warning"), dict):
+        input_price_asked = None
+        if isinstance(result.get("input"), dict):
+            input_price_asked = result["input"].get("price_asked")
+        if input_price_asked is None and isinstance(form_input, dict):
+            input_price_asked = form_input.get("price_asked")
+
+        outputs["price_warning"] = _build_price_warning(
+            input_price_asked,
+            outputs.get("fair_price"),
+        )
 
     market_reference.setdefault("used_q1", None)
     market_reference.setdefault("used_median", None)

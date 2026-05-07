@@ -266,49 +266,72 @@ def get_price_stats(
     brand: Optional[str] = None,
     ram_gb: Optional[int] = None,
     model_family: Optional[str] = None,
+    condition: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Returneaza statistici de pret pentru segmentul cerut.
+    Returnează statistici de preț pentru segmentul cerut.
+
     Fallback:
-    1. brand + ram + family
+    1. brand + ram + family, doar dacă familia modelului este completată
     2. brand + ram
-    3. brand + family
+    3. brand + family, doar dacă familia modelului este completată
     4. brand
     5. ram
+
+    Pentru evaluări second-hand, segmentul este acceptat dacă are cel puțin
+    3 produse second-hand.
+
+    Pentru evaluări de produse noi, segmentul este acceptat dacă are cel puțin
+    3 produse noi.
     """
 
-    fallback_chain = [
-        {
+    condition = _normalize_condition(condition)
+
+    brand = _clean_str(brand)
+    model_family = _clean_str(model_family)
+    ram_gb = _normalize_int(ram_gb)
+
+    fallback_chain = []
+
+    if brand and ram_gb is not None and model_family:
+        fallback_chain.append({
             "label": "brand+ram+family",
             "brand": brand,
             "ram_gb": ram_gb,
             "model_family": model_family,
-        },
-        {
+        })
+
+    if brand and ram_gb is not None:
+        fallback_chain.append({
             "label": "brand+ram",
             "brand": brand,
             "ram_gb": ram_gb,
             "model_family": None,
-        },
-        {
+        })
+
+    if brand and model_family:
+        fallback_chain.append({
             "label": "brand+family",
             "brand": brand,
             "ram_gb": None,
             "model_family": model_family,
-        },
-        {
+        })
+
+    if brand:
+        fallback_chain.append({
             "label": "brand",
             "brand": brand,
             "ram_gb": None,
             "model_family": None,
-        },
-        {
+        })
+
+    if ram_gb is not None:
+        fallback_chain.append({
             "label": "ram",
             "brand": None,
             "ram_gb": ram_gb,
             "model_family": None,
-        },
-    ]
+        })
 
     for step in fallback_chain:
         used_clauses, used_params = _build_where_clauses(
@@ -341,7 +364,12 @@ def get_price_stats(
         used_prices = [float(r["price_ron"]) for r in used_rows if r.get("price_ron") is not None]
         new_prices = [float(r["price_ron"]) for r in new_rows if r.get("price_ron") is not None]
 
-        if len(used_prices) >= 3:
+        if condition == "new":
+            has_enough_comparables = len(new_prices) >= 3
+        else:
+            has_enough_comparables = len(used_prices) >= 3
+
+        if has_enough_comparables:
             used_stats = _compute_stats(used_prices)
             new_stats = _compute_stats(new_prices)
 
@@ -367,9 +395,9 @@ def get_price_stats(
     return {
         "source_level": "no_match",
         "filters_used": {
-            "brand": _clean_str(brand),
-            "ram_gb": _normalize_int(ram_gb),
-            "model_family": _clean_str(model_family),
+            "brand": brand,
+            "ram_gb": ram_gb,
+            "model_family": model_family,
         },
         "used": {
             "n": 0,

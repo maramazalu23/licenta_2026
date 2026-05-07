@@ -40,12 +40,12 @@
     </div>
 
     <div class="seller-stat-card">
-        <div class="seller-stat-card__label">Oferte excelente</div>
+        <div class="seller-stat-card__label">Prețuri avantajoase</div>
         <div class="seller-stat-card__value">{{ eval_stats.excellent }}</div>
     </div>
 
     <div class="seller-stat-card">
-        <div class="seller-stat-card__label">Scor mediu</div>
+        <div class="seller-stat-card__label">Scor mediu preț</div>
         <div class="seller-stat-card__value">
             {% if eval_stats.score_count > 0 %}
                 {{ (eval_stats.total_score / eval_stats.score_count)|round(1) }}
@@ -123,6 +123,16 @@
                             <span>Preț recomandat</span>
                             <strong>{{ row.recommended_price|price }}</strong>
                         </div>
+
+                        {% if row.price_warning and row.price_warning.is_warning %}
+                            <div class="price-warning-box">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <div>
+                                    <strong>{{ row.price_warning.label }}</strong>
+                                    <span>{{ row.price_warning.message }}</span>
+                                </div>
+                            </div>
+                        {% endif %}
 
                         <div class="seller-eval-card__bottom">
                             <span class="seller-deal-label {{ deal_badge_class }}">{{ deal_label }}</span>
@@ -203,6 +213,16 @@
                                 <span class="badge text-bg-light">{{ row.model_family or "-" }}</span>
                                 <span class="badge text-bg-light">{{ row.ram_gb or "-" }} GB</span>
                             </div>
+
+                            {% if row.price_warning and row.price_warning.is_warning %}
+                                <div class="price-warning-box">
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                    <div>
+                                        <strong>{{ row.price_warning.label }}</strong>
+                                        <span>{{ row.price_warning.message }}</span>
+                                    </div>
+                                </div>
+                            {% endif %}
 
                             <div class="seller-listing-actions">
                                 {% if row.evaluation_token %}

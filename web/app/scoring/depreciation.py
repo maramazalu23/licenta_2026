@@ -19,12 +19,12 @@ def compute_depreciation_score(
     new_median: Optional[float],
 ) -> Dict[str, Any]:
     """
-    Calculeaza deprecierea fata de pretul median pentru produse noi
-    si intoarce un scor 0-100.
+    Calculeaza deprecierea față de prețul median pentru produse noi
+    și întoarce un scor 0-100.
 
     Interpretare:
-    - scor mare = depreciere sanatoasa / plauzibila pentru second-hand
-    - scor mic = fie depreciere prea mica, fie date insuficiente
+    - scor mare = depreciere sănătoasă / plauzibilă pentru second-hand
+    - scor mic = fie depreciere prea mică, fie date insuficiente
     """
 
     fair_price_used = _to_float(fair_price_used)
@@ -49,23 +49,23 @@ def compute_depreciation_score(
     if 40 <= depreciation_pct <= 75:
         score = 90
         label = "healthy"
-        explanation = "Deprecierea estimata se afla intr-un interval plauzibil pentru piata second-hand."
+        explanation = "Deprecierea estimată se află într-un interval plauzibil pentru piața second-hand."
     elif 25 <= depreciation_pct < 40:
         score = 65
         label = "low_depreciation"
-        explanation = "Deprecierea estimata este relativ mica, ceea ce poate indica un pret SH ridicat fata de segmentul nou."
+        explanation = "Deprecierea estimată este relativ mică, ceea ce poate indica un preț SH ridicat față de segmentul nou."
     elif 75 < depreciation_pct <= 90:
         score = 70
         label = "high_depreciation"
-        explanation = "Deprecierea estimata este ridicata, dar inca plauzibila pentru produse mai vechi sau mai slab pozitionate."
+        explanation = "Deprecierea estimată este ridicată, dar înca plauzibilă pentru produse mai vechi sau mai slab poziționate."
     elif depreciation_pct < 25:
         score = 30
         label = "very_low_depreciation"
-        explanation = "Deprecierea estimata este foarte mica, ceea ce sugereaza un pret second-hand apropiat de cel al produselor noi."
+        explanation = "Deprecierea estimată este foarte mică, ceea ce sugerează un preț second-hand apropiat de cel al produselor noi."
     else:
         score = 45
         label = "extreme_depreciation"
-        explanation = "Deprecierea estimata este foarte mare si poate reflecta fie uzura accentuata, fie comparabile imperfecte."
+        explanation = "Deprecierea estimată este foarte mare și poate reflecta fie uzura accentuată, fie comparabile imperfecte."
 
     return {
         "score": int(_clamp(score, 0, 100)),

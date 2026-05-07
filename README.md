@@ -190,9 +190,9 @@ Aplicația Flask folosește două baze de date:
 Utilizatorul completează un formular cu titlu, descriere, brand, RAM, condiție, preț cerut și, opțional, familia modelului. Aplicația estimează:
 
 - prețul recomandat (bazat pe mediana segmentului de piață);
-- scorul de ofertă, interpretat ca atractivitate a prețului pentru cumpărător în raport cu segmentul de piață;
+- scorul de preț, care indică poziționarea prețului cerut față de segmentul de piață;
 - scorul de depreciere (față de prețul median al produselor noi);
-- scorul de atractivitate al anunțului;
+- scorul de atractivitate al anunțului, care evaluează cât de complet și clar este anunțul.
 - produse similare din baza de date.
 
 ### Publicarea unui anunț

@@ -74,6 +74,39 @@ def _safe_float(value):
         return None
 
 
+def _build_price_warning(price_asked, recommended_price):
+    price_asked = _safe_float(price_asked)
+    recommended_price = _safe_float(recommended_price)
+
+    if price_asked is None or recommended_price is None or recommended_price <= 0:
+        return {
+            "is_warning": False,
+            "level": None,
+            "label": None,
+            "message": None,
+            "ratio": None,
+        }
+
+    ratio = price_asked / recommended_price
+
+    if ratio < 0.50:
+        return {
+            "is_warning": True,
+            "level": "very_low",
+            "label": "Preț neobișnuit de mic",
+            "message": "Prețul cerut este sub 50% din prețul recomandat. Verificarea anunțului este recomandată.",
+            "ratio": round(ratio, 2),
+        }
+
+    return {
+        "is_warning": False,
+        "level": None,
+        "label": None,
+        "message": None,
+        "ratio": round(ratio, 2),
+    }
+
+
 def _safe_datetime_start(value):
     if not value:
         return None
@@ -135,6 +168,9 @@ def _row_to_evaluation_item(row):
     condition = input_data.get("condition")
     recommended_price = _extract_recommended_price(result_data, condition)
 
+    price_asked = input_data.get("price_asked")
+    price_warning = _build_price_warning(price_asked, recommended_price)
+
     return {
         "token": row.token,
         "created_at": row.created_at,
@@ -142,8 +178,9 @@ def _row_to_evaluation_item(row):
         "brand": input_data.get("brand"),
         "model_family": input_data.get("model_family"),
         "condition": condition,
-        "price_asked": input_data.get("price_asked"),
+        "price_asked": price_asked,
         "recommended_price": recommended_price,
+        "price_warning": price_warning,
         "deal_label": (
             result_data.get("price_estimation", {})
             .get("outputs", {})
@@ -221,8 +258,14 @@ def _listing_to_favorite_item(row):
         "condition": row.listing.condition if row.listing else None,
         "recommended_price": row.listing.recommended_price if row.listing else None,
         "deal_score": row.listing.deal_score if row.listing else None,
+        "price_warning": _build_price_warning(
+            row.listing.price_asked if row.listing else None,
+            row.listing.recommended_price if row.listing else None,
+        ),
         "listing_created_at": row.listing.created_at if row.listing else None,
         "image_filename": row.listing.image_filename if row.listing else None,
+        "evaluation_token": row.listing.evaluation_token if row.listing else None,
+        "description": row.listing.description if row.listing else None,
     }
 
 
@@ -370,6 +413,9 @@ def list_admin_evaluations(
 
         recommended_price = _extract_recommended_price(result_data, item_condition)
 
+        price_asked = input_data.get("price_asked")
+        price_warning = _build_price_warning(price_asked, recommended_price)
+
         items.append({
             "token": row.token,
             "created_at": row.created_at,
@@ -377,8 +423,9 @@ def list_admin_evaluations(
             "brand": input_data.get("brand"),
             "model_family": input_data.get("model_family"),
             "condition": item_condition,
-            "price_asked": input_data.get("price_asked"),
+            "price_asked": price_asked,
             "recommended_price": recommended_price,
+            "price_warning": price_warning,
             "deal_label": (
                 result_data.get("price_estimation", {})
                 .get("outputs", {})
@@ -518,6 +565,7 @@ def list_recent_listings(limit=30):
             "created_at": row.created_at,
             "recommended_price": row.recommended_price,
             "deal_score": row.deal_score,
+            "price_warning": _build_price_warning(row.price_asked, row.recommended_price),
         })
 
     return items
@@ -560,6 +608,7 @@ def list_user_listings(user_id, limit=20):
             "created_at": row.created_at,
             "recommended_price": row.recommended_price,
             "deal_score": row.deal_score,
+            "price_warning": _build_price_warning(row.price_asked, row.recommended_price),
         })
 
     return items
@@ -894,6 +943,7 @@ def list_recommended_listings_for_buyer(user_id, limit=6):
             "recommended_price": row.recommended_price,
             "deal_score": row.deal_score,
             "match_score": item["score"],
+            "price_warning": _build_price_warning(row.price_asked, row.recommended_price),
         })
 
     return items

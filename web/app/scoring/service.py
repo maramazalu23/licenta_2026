@@ -43,7 +43,7 @@ def evaluate_listing(
             "retention_ratio": None,
             "depreciation_pct": None,
             "label": "not_applicable",
-            "explanation": "Scorul de depreciere se calculeaza doar pentru produse second-hand.",
+            "explanation": "Scorul de depreciere se calculează doar pentru produse second-hand.",
         }
 
     attractiveness_result = compute_attractiveness_score(

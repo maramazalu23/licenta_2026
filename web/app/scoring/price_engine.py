@@ -27,6 +27,42 @@ def _round_price(value: Optional[float]) -> Optional[float]:
     return round(float(value), 2)
 
 
+def _compute_price_warning(
+    price_asked: Optional[float],
+    fair_price: Optional[float],
+) -> Dict[str, Any]:
+    price_asked = _to_float(price_asked)
+    fair_price = _to_float(fair_price)
+
+    if price_asked is None or fair_price is None or fair_price <= 0:
+        return {
+            "is_warning": False,
+            "level": None,
+            "label": None,
+            "message": None,
+            "ratio": None,
+        }
+
+    ratio = price_asked / fair_price
+
+    if ratio < 0.50:
+        return {
+            "is_warning": True,
+            "level": "very_low",
+            "label": "Preț neobișnuit de mic",
+            "message": "Prețul cerut este sub 50% din prețul recomandat. Poate fi o ofertă foarte bună, dar este recomandată verificarea atentă a produsului.",
+            "ratio": _round_price(ratio),
+        }
+
+    return {
+        "is_warning": False,
+        "level": None,
+        "label": None,
+        "message": None,
+        "ratio": _round_price(ratio),
+    }
+
+
 def _segment_confidence(source_level: str, used_n: int, condition: str, new_n: int) -> str:
     if condition == "new":
         if source_level in {"brand+ram+family", "brand+ram", "brand+family"} and new_n >= 3:
@@ -207,9 +243,9 @@ def estimate_price(
     price_asked: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Motorul principal pentru estimarea pretului.
-    Pentru `used` foloseste segmentul second-hand.
-    Pentru `new` foloseste referinta segmentului nou.
+    Motorul principal pentru estimarea prețului.
+    Pentru `used` folosește segmentul second-hand.
+    Pentru `new` folosește referința segmentului nou.
     """
 
     condition = _clean_condition(condition)
@@ -218,6 +254,7 @@ def estimate_price(
         brand=brand,
         ram_gb=ram_gb,
         model_family=model_family,
+        condition=condition,
     )
 
     used = stats.get("used", {})
@@ -249,9 +286,9 @@ def estimate_price(
             fair_price_new=fair_price_new,
         )
         pricing_explanation = (
-            "Pretul recomandat pentru produsul nou este aproximat prin mediana segmentului de produse noi."
+            "Prețul recomandat pentru produsul nou este aproximat prin mediana segmentului de produse noi."
             if fair_price_selected is not None
-            else "Nu exista suficiente comparabile din segmentul nou pentru a estima robust pretul recomandat."
+            else "Nu există suficiente comparabile din segmentul nou pentru a estima robust prețul recomandat."
         )
     else:
         fair_price_selected = fair_price_used
@@ -262,13 +299,18 @@ def estimate_price(
             fair_price_used=fair_price_used,
         )
         pricing_explanation = (
-            "Pretul recomandat pentru produsul second-hand este aproximat prin mediana segmentului de comparabile gasite in baza de date."
+            "Prețul recomandat pentru produsul second-hand este aproximat prin mediana segmentului de comparabile găsite în baza de date."
             if fair_price_selected is not None
-            else "Nu exista suficiente comparabile pentru a estima robust pretul recomandat."
+            else "Nu există suficiente comparabile pentru a estima robust prețul recomandat."
         )
 
     source_level = stats.get("source_level", "no_match")
     confidence = _segment_confidence(source_level, used_n, condition, new_n)
+
+    price_warning = _compute_price_warning(
+        price_asked=price_asked,
+        fair_price=fair_price_selected,
+    )
 
     return {
         "inputs": {
@@ -301,6 +343,7 @@ def estimate_price(
             "deal_rating_label": deal["label"],
             "deal_rating_score": deal["score"],
             "delta_vs_fair_price": deal["delta_vs_fair"],
+            "price_warning": price_warning,
         },
         "explanations": {
             "pricing": pricing_explanation,

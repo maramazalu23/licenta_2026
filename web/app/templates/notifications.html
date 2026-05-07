@@ -3,67 +3,190 @@
 {% block title %}Notificări{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm mb-4">
-    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div>
-            <h1 class="h4 mb-1">Notificările mele</h1>
-            <p class="text-muted mb-0">
-                Aici vezi alertele generate pe baza interesului buyerilor pentru segmente similare cu anunțurile tale.
-            </p>
+{% set stats = namespace(unread=0, read=0) %}
+
+{% for row in rows %}
+    {% if row.is_read %}
+        {% set stats.read = stats.read + 1 %}
+    {% else %}
+        {% set stats.unread = stats.unread + 1 %}
+    {% endif %}
+{% endfor %}
+
+<div class="notifications-page-header">
+    <div class="notifications-header-row">
+        <div class="notifications-title-wrap">
+            <div class="notifications-title-icon">
+                <i class="bi bi-bell-fill"></i>
+
+                {% if stats.unread > 0 %}
+                    <span class="notifications-title-dot">{{ stats.unread }}</span>
+                {% endif %}
+            </div>
+
+            <div>
+                <h1 class="notifications-page-title">Notificări</h1>
+                <p class="notifications-page-subtitle">
+                    Ai {{ stats.unread }} notificări necitite din {{ rows|length }} alerte generate pentru contul tău.
+                </p>
+            </div>
         </div>
 
-        {% if rows %}
+        {% if rows and stats.unread > 0 %}
             <form method="post" action="{{ url_for('main.mark_all_notifications_read_route') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-outline-primary">Marchează tot ca citit</button>
+                <button type="submit" class="btn btn-primary notifications-main-btn">
+                    <i class="bi bi-check2-all"></i>
+                    Marchează toate ca citite
+                </button>
             </form>
         {% endif %}
     </div>
 </div>
 
-<div class="card shadow-sm">
-    <div class="card-body">
-        {% if rows %}
-            <div class="d-flex flex-column gap-3">
-                {% for row in rows %}
-                    <div class="border rounded p-3 bg-white {% if not row.is_read %}border-primary{% endif %}">
-                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
-                            <div>
-                                <div class="fw-semibold">{{ row.title }}</div>
-                                <div class="text-muted small">
-                                    {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
-                                </div>
-                            </div>
+<div class="notifications-info-card">
+    <div class="notifications-info-icon">
+        <i class="bi bi-heart"></i>
+    </div>
+    <div>
+        <h2>Despre notificări</h2>
+        <p>
+            Primești alerte când buyerii salvează la favorite anunțuri din segmente similare cu ale tale.
+            Folosește aceste informații pentru a înțelege cererea din piață și pentru a ajusta prețurile.
+        </p>
+    </div>
+</div>
 
-                            <div>
-                                {% if row.is_read %}
-                                    <span class="badge text-bg-secondary">Citită</span>
-                                {% else %}
-                                    <span class="badge text-bg-primary">Necitită</span>
+{% if rows %}
+    <div class="notifications-summary-bar">
+        <div class="notifications-summary-left">
+            <span>Afișare <strong>{{ rows|length }}</strong> notificări</span>
+
+            {% if stats.unread > 0 %}
+                <span class="notifications-summary-pill notifications-summary-pill--unread">
+                    {{ stats.unread }} necitite
+                </span>
+            {% endif %}
+
+            {% if stats.read > 0 %}
+                <span class="notifications-summary-pill notifications-summary-pill--read">
+                    {{ stats.read }} citite
+                </span>
+            {% endif %}
+        </div>
+
+        <span class="notifications-static-info">
+            <i class="bi bi-clock-history"></i>
+            Ordonate după status și dată
+        </span>
+    </div>
+
+    <div class="notifications-list">
+        {% for row in rows %}
+            <article class="notification-card {% if not row.is_read %}notification-card--unread{% else %}notification-card--read{% endif %}">
+                <div class="notification-card-icon">
+                    <i class="bi bi-bell"></i>
+                </div>
+
+                <div class="notification-card-body">
+                    <div class="notification-card-top">
+                        <div class="notification-card-main">
+                            <div class="notification-card-title-row">
+                                <h2>{{ row.title }}</h2>
+
+                                {% if not row.is_read %}
+                                    <span class="notification-unread-dot" title="Notificare necitită"></span>
                                 {% endif %}
                             </div>
+
+                            <p class="notification-card-message">
+                                {{ row.message }}
+                            </p>
                         </div>
 
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            <span class="badge text-bg-light">Brand: {{ row.brand or "-" }}</span>
-                            <span class="badge text-bg-light">Familie: {{ row.model_family or "-" }}</span>
-                            <span class="badge text-bg-light">RAM: {{ row.ram_gb or "-" }} GB</span>
+                        <div class="notification-card-status">
+                            {% if row.is_read %}
+                                <span class="notification-status-pill notification-status-pill--read">
+                                    <i class="bi bi-check2"></i>
+                                    Citită
+                                </span>
+                            {% else %}
+                                <span class="notification-status-pill notification-status-pill--unread">
+                                    <i class="bi bi-circle-fill"></i>
+                                    Necitită
+                                </span>
+                            {% endif %}
                         </div>
+                    </div>
 
-                        <p class="mb-3">{{ row.message }}</p>
+                    <div class="notification-segment-row">
+                        <span class="notification-segment-label">Segment:</span>
+
+                        <span class="notification-segment-pill">{{ row.brand or "-" }}</span>
+                        <span class="notification-segment-pill">{{ row.model_family or "-" }}</span>
+                        <span class="notification-segment-pill">{{ row.ram_gb or "-" }} GB</span>
+                    </div>
+
+                    <div class="notification-card-bottom">
+                        <div class="notification-date">
+                            <i class="bi bi-clock"></i>
+                            {{ row.created_at.strftime("%d.%m.%Y %H:%M") if row.created_at else "-" }}
+                        </div>
 
                         {% if not row.is_read %}
                             <form method="post" action="{{ url_for('main.mark_notification_read', notification_id=row.id) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">Marchează ca citită</button>
+                                <button type="submit" class="btn btn-sm btn-outline-primary notification-read-btn">
+                                    <i class="bi bi-check2"></i>
+                                    Marchează ca citită
+                                </button>
                             </form>
+                        {% else %}
+                            {% if row.read_at %}
+                                <div class="notification-read-date">
+                                    Citită la {{ row.read_at.strftime("%d.%m.%Y %H:%M") }}
+                                </div>
+                            {% endif %}
                         {% endif %}
                     </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-muted mb-0">Nu există încă notificări pentru contul tău.</p>
-        {% endif %}
+                </div>
+            </article>
+        {% endfor %}
     </div>
-</div>
+
+    <div class="notifications-types-card">
+        <h2>Tipuri de notificări</h2>
+
+        <div class="notifications-types-grid">
+            <div class="notifications-type-item">
+                <div class="notifications-type-icon">
+                    <i class="bi bi-heart-fill"></i>
+                </div>
+                <h3>Favorite similare</h3>
+                <p>Când cumpărătorii salvează anunțuri similare cu cele publicate de tine.</p>
+            </div>
+
+            <div class="notifications-type-item">
+                <div class="notifications-type-icon">
+                    <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <h3>Cerere crescută</h3>
+                <p>Când segmentul tău devine mai căutat în platformă.</p>
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="notifications-empty-card">
+        <div class="notifications-empty-icon">
+            <i class="bi bi-bell"></i>
+        </div>
+        <h2>Nu ai încă notificări</h2>
+        <p>
+            Notificările vor apărea aici atunci când buyerii salvează la favorite anunțuri similare cu produsele tale.
+        </p>
+        <a href="{{ url_for('main.profile') }}" class="btn btn-primary">
+            Înapoi la dashboard
+        </a>
+    </div>
+{% endif %}
 {% endblock %}
