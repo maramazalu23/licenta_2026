@@ -1,7 +1,4 @@
-/* ────────────────────────────────────────────────
-   IT Resell — Design system
-   Paleta: mauve cald + slate + alb curat
-   ──────────────────────────────────────────────── */
+/* IT Resell — stiluri principale */
 
 :root {
     --clr-accent:       #9b6fa5;
@@ -263,6 +260,11 @@ hr {
 
 .badge-score-na {
     background-color: #c4baca;
+    color: #fff;
+}
+
+.badge-price-warning {
+    background-color: #c9a84c;
     color: #fff;
 }
 
@@ -632,9 +634,7 @@ hr {
     white-space: nowrap;
 }
 
-/* ════════════════════════════════════════════════
-   HOME PAGE — Hero, Stats, Roles, Footer
-   ════════════════════════════════════════════════ */
+/* === Homepage === */
 
 /* ── Hero ── */
 
@@ -943,9 +943,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   EVALUATION PAGE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Pagina de evaluare === */
 
 .eval-page-header {
     margin-bottom: 1.75rem;
@@ -1461,9 +1459,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   EXPLORE PAGE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Pagina Explorează === */
 
 .explore-page-header {
     margin-bottom: 1.75rem;
@@ -1936,9 +1932,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   LISTINGS PAGE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Pagina Anunțuri === */
 
 .listings-page-header {
     margin-bottom: 1.65rem;
@@ -2313,9 +2307,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   SELLER DASHBOARD / PROFILE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Dashboard seller === */
 
 .seller-dashboard-hero {
     background: linear-gradient(135deg, #ffffff 0%, #fbf8fc 100%);
@@ -2716,9 +2708,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   ADMIN DASHBOARD — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Dashboard admin === */
 
 .admin-dashboard-hero {
     background: linear-gradient(135deg, #ffffff 0%, #fbf8fc 100%);
@@ -3160,9 +3150,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   ADMIN ANALYTICS — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Analytics admin === */
 
 .analytics-hero {
     background: linear-gradient(135deg, #ffffff 0%, #fbf8fc 100%);
@@ -3480,9 +3468,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   HISTORY PAGE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Istoric evaluări === */
 
 .history-page-header {
     margin-bottom: 1.65rem;
@@ -3750,9 +3736,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   ADMIN HISTORY — filters and global history
-   ════════════════════════════════════════════════ */
+/* === Istoric global admin === */
 
 .admin-history-filter-card {
     background: var(--clr-surface);
@@ -3943,9 +3927,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   PRICE WARNING — unusually low price
-   ════════════════════════════════════════════════ */
+/* === Avertizare preț === */
 
 .price-warning-inline {
     display: flex;
@@ -4004,9 +3986,7 @@ hr {
     margin-top: 0.22rem;
 }
 
-/* ════════════════════════════════════════════════
-   FAVORITES PAGE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Pagina Favorite === */
 
 .favorites-page-header {
     margin-bottom: 1.65rem;
@@ -4370,9 +4350,7 @@ hr {
     }
 }
 
-/* ════════════════════════════════════════════════
-   NOTIFICATIONS PAGE — Figma-inspired redesign
-   ════════════════════════════════════════════════ */
+/* === Pagina Notificări === */
 
 .notifications-page-header {
     margin-bottom: 1.5rem;

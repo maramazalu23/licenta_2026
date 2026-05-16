@@ -57,7 +57,7 @@ def compute_depreciation_score(
     elif 75 < depreciation_pct <= 90:
         score = 70
         label = "high_depreciation"
-        explanation = "Deprecierea estimată este ridicată, dar înca plauzibilă pentru produse mai vechi sau mai slab poziționate."
+        explanation = "Deprecierea estimată este ridicată, dar încă plauzibilă pentru produse mai vechi sau mai slab poziționate."
     elif depreciation_pct < 25:
         score = 30
         label = "very_low_depreciation"

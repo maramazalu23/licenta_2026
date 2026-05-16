@@ -7,7 +7,8 @@ from flask import current_app
 
 from app import db
 from app.models import EvaluationResult, Listing, User, Favorite, Notification, utc_now
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, func
+from app.scoring.price_engine import _compute_price_warning as _build_price_warning
 from app.db_market import get_explore_filters, get_price_stats, get_market_condition_distribution
 
 
@@ -72,39 +73,6 @@ def _safe_float(value):
         return float(value)
     except (TypeError, ValueError):
         return None
-
-
-def _build_price_warning(price_asked, recommended_price):
-    price_asked = _safe_float(price_asked)
-    recommended_price = _safe_float(recommended_price)
-
-    if price_asked is None or recommended_price is None or recommended_price <= 0:
-        return {
-            "is_warning": False,
-            "level": None,
-            "label": None,
-            "message": None,
-            "ratio": None,
-        }
-
-    ratio = price_asked / recommended_price
-
-    if ratio < 0.50:
-        return {
-            "is_warning": True,
-            "level": "very_low",
-            "label": "Preț neobișnuit de mic",
-            "message": "Prețul cerut este sub 50% din prețul recomandat. Verificarea anunțului este recomandată.",
-            "ratio": round(ratio, 2),
-        }
-
-    return {
-        "is_warning": False,
-        "level": None,
-        "label": None,
-        "message": None,
-        "ratio": round(ratio, 2),
-    }
 
 
 def _safe_datetime_start(value):
@@ -216,6 +184,7 @@ def _market_median_for_listing(brand=None, model_family=None, ram_gb=None, condi
         brand=brand,
         ram_gb=ram_gb,
         model_family=model_family,
+        condition=condition,
     )
 
     if condition == "new":
@@ -763,12 +732,12 @@ def generate_seller_notifications_for_user(user_id):
 
         if market_median is not None:
             message = (
-                f"{buyers_count} {buyer_phrase} salvat la favorite anunțuri din segmentul {segment_label}. "
+                f"{buyers_count} {buyer_phrase} adăugat la favorite anunțuri din segmentul {segment_label}. "
                 f"Prețul median estimat din piață pentru acest segment este {market_median:.0f} RON."
             )
         else:
             message = (
-                f"{buyers_count} {buyer_phrase} salvat la favorite anunțuri din segmentul {segment_label}. "
+                f"{buyers_count} {buyer_phrase} adăugat la favorite anunțuri din segmentul {segment_label}. "
                 f"Nu există momentan o mediană de piață suficient de clară pentru acest segment."
             )
 

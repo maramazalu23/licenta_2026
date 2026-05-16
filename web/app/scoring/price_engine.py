@@ -50,7 +50,7 @@ def _compute_price_warning(
             "is_warning": True,
             "level": "very_low",
             "label": "Preț neobișnuit de mic",
-            "message": "Prețul cerut este sub 50% din prețul recomandat. Poate fi o ofertă foarte bună, dar este recomandată verificarea atentă a produsului.",
+            "message": "Prețul cerut este sub 50% din prețul recomandat. Poate fi o ofertă foarte bună, dar este sugerată verificarea atentă a produsului.",
             "ratio": _round_price(ratio),
         }
 

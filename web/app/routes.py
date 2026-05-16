@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 
 from app.models import User
 from app.scoring.service import evaluate_listing
+from app.scoring.price_engine import _compute_price_warning as _build_price_warning
 from app.db_market import (
     get_market_summary,
     get_explore_filters,
@@ -178,39 +179,6 @@ def _score_badge_class(score):
     if score >= 45:
         return "bg-warning text-dark"
     return "bg-danger"
-
-
-def _build_price_warning(price_asked, recommended_price):
-    price_asked = _to_float(price_asked)
-    recommended_price = _to_float(recommended_price)
-
-    if price_asked is None or recommended_price is None or recommended_price <= 0:
-        return {
-            "is_warning": False,
-            "level": None,
-            "label": None,
-            "message": None,
-            "ratio": None,
-        }
-
-    ratio = price_asked / recommended_price
-
-    if ratio < 0.50:
-        return {
-            "is_warning": True,
-            "level": "very_low",
-            "label": "Preț neobișnuit de mic",
-            "message": "Prețul cerut este sub 50% din prețul recomandat. Poate fi o ofertă foarte bună, dar este recomandată verificarea atentă a produsului.",
-            "ratio": round(ratio, 2),
-        }
-
-    return {
-        "is_warning": False,
-        "level": None,
-        "label": None,
-        "message": None,
-        "ratio": round(ratio, 2),
-    }
 
 
 def _extract_allowed_families_for_brand(filters, brand):
