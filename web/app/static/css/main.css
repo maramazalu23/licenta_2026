@@ -2870,7 +2870,7 @@ hr {
 .admin-panel__header h2,
 .admin-actions-card h2 {
     font-size: 1.3rem;
-    margin-bottom: 0.25rem;
+    margin-bottom: 1.6rem;
 }
 
 .admin-panel__header p {
@@ -2940,6 +2940,7 @@ hr {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .admin-row-title:hover {
@@ -2970,7 +2971,9 @@ hr {
 }
 
 .admin-row-score strong {
-    color: var(--clr-text);
+    color: var(--clr-accent);
+    font-weight: 800;
+    font-size: 1.05rem;
     white-space: nowrap;
 }
 
@@ -3818,8 +3821,8 @@ hr {
 }
 
 .admin-history-user-cell {
-    min-width: 165px;
-    max-width: 180px;
+    min-width: 145px;
+    max-width: 155px;
 }
 
 .admin-history-user-wrap {
@@ -3851,7 +3854,7 @@ hr {
     text-overflow: ellipsis;
     cursor: default;
     display: block;
-    max-width: 130px;
+    max-width: 105px;
 }
 
 .admin-history-email-short:hover {
@@ -3859,8 +3862,12 @@ hr {
 }
 
 .admin-history-table .history-title-cell {
-    min-width: 190px;
+    min-width: 200px;
     max-width: 220px;
+    width: 220px;
+    font-size: 0.84rem;
+    line-height: 1.35;
+    white-space: normal;
 }
 
 .admin-history-table .badge {
@@ -3962,7 +3969,6 @@ hr {
 .price-warning-box i {
     color: #d48806;
     font-size: 1rem;
-    margin-top: 0.1rem;
 }
 
 .price-warning-box strong {
@@ -4693,56 +4699,6 @@ hr {
     white-space: nowrap;
 }
 
-.notifications-types-card {
-    background: var(--clr-surface);
-    border: 1px solid var(--clr-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-sm);
-    padding: 1.55rem;
-    margin-top: 1.5rem;
-}
-
-.notifications-types-card h2 {
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-}
-
-.notifications-types-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-}
-
-.notifications-type-item {
-    background: #f4eef7;
-    border-radius: 18px;
-    padding: 1.2rem;
-}
-
-.notifications-type-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 999px;
-    background: #eadcf0;
-    color: var(--clr-accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 0.85rem;
-}
-
-.notifications-type-item h3 {
-    font-size: 1rem;
-    margin-bottom: 0.3rem;
-}
-
-.notifications-type-item p {
-    color: var(--clr-muted);
-    font-size: 0.9rem;
-    margin: 0;
-    line-height: 1.6;
-}
-
 .notifications-empty-card {
     background: var(--clr-surface);
     border: 1px solid var(--clr-border);
@@ -4808,7 +4764,6 @@ hr {
     .notifications-info-card,
     .notifications-summary-bar,
     .notification-card,
-    .notifications-types-card,
     .notifications-empty-card {
         padding: 1.1rem;
     }
@@ -4816,8 +4771,54 @@ hr {
     .notification-card {
         grid-template-columns: 1fr;
     }
+}
 
-    .notifications-types-grid {
+/* === Ștergere evaluări === */
+
+.history-actions-cell {
+    white-space: nowrap;
+    text-align: center;
+    min-width: 82px;
+}
+
+.history-actions-cell form {
+    display: inline-block;
+    margin-left: 0.35rem;
+}
+
+.history-icon-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+}
+
+.history-icon-btn i {
+    font-size: 0.9rem;
+}
+
+.seller-eval-card__bottom--actions {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.seller-eval-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 767.98px) {
+    .seller-eval-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .seller-eval-card__bottom--actions {
         grid-template-columns: 1fr;
     }
 }

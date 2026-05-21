@@ -1056,6 +1056,39 @@ def delete_listing(listing_id, user_id=None, is_admin=False):
     return True, None
 
 
+def delete_evaluation(token, user_id=None, is_admin=False):
+    token = (token or "").strip()
+    user_id = _safe_int(user_id)
+
+    if not token:
+        return False, "invalid"
+
+    row = EvaluationResult.query.filter_by(token=token).first()
+    if not row:
+        return False, "not_found"
+
+    if not is_admin:
+        if not user_id or row.user_id != user_id:
+            return False, "forbidden"
+
+    associated_listing = Listing.query.filter_by(evaluation_token=row.token).first()
+
+    if associated_listing:
+        ok, error_code = delete_listing(
+            listing_id=associated_listing.id,
+            user_id=user_id,
+            is_admin=is_admin,
+        )
+
+        if not ok:
+            return False, error_code or "listing_delete_failed"
+
+    db.session.delete(row)
+    db.session.commit()
+
+    return True, None
+
+
 def get_admin_dashboard_metrics():
     return {
         "users_total": User.query.count(),

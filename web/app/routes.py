@@ -38,6 +38,7 @@ from app.services import (
     refresh_seller_notifications_for_listing_segment,
     can_user_publish_evaluation,
     delete_listing,
+    delete_evaluation,
     get_admin_dashboard_metrics,
     get_admin_analytics_data,
 )
@@ -593,6 +594,29 @@ def delete_listing_route(listing_id):
         flash("Anunțul a fost șters cu succes.", "success")
 
     return redirect(request.referrer or url_for("main.listings"))
+
+
+@main_bp.route("/evaluations/<token>/delete", methods=["POST"])
+@role_required(User.ROLE_SELLER, User.ROLE_BUYER, User.ROLE_ADMIN)
+def delete_evaluation_route(token):
+    ok, error_code = delete_evaluation(
+        token=token,
+        user_id=current_user.id,
+        is_admin=current_user.is_admin,
+    )
+
+    if error_code == "forbidden":
+        abort(403)
+
+    if error_code == "not_found":
+        abort(404)
+
+    if not ok:
+        flash("Evaluarea nu a putut fi ștearsă.", "warning")
+    else:
+        flash("Evaluarea a fost ștearsă cu succes.", "success")
+
+    return redirect(request.referrer or url_for("main.history"))
 
 
 @main_bp.route("/evaluate", methods=["GET", "POST"])

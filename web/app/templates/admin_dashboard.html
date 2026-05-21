@@ -161,9 +161,11 @@
                                 {% endif %}
                             </div>
                             {% if row.price_warning and row.price_warning.is_warning %}
-                                <div class="price-warning-inline" title="{{ row.price_warning.message }}">
+                                <div class="price-warning-box">
                                     <i class="bi bi-exclamation-triangle"></i>
-                                    {{ row.price_warning.label }}
+                                    <div>
+                                        <strong>{{ row.price_warning.label }}</strong>
+                                    </div>
                                 </div>
                             {% endif %}
                         </div>
@@ -235,9 +237,11 @@
                                 <span class="badge text-bg-light">{{ row.ram_gb or "-" }} GB</span>
                             </div>
                             {% if row.price_warning and row.price_warning.is_warning %}
-                                <div class="price-warning-inline" title="{{ row.price_warning.message }}">
+                                <div class="price-warning-box">
                                     <i class="bi bi-exclamation-triangle"></i>
-                                    {{ row.price_warning.label }}
+                                    <div>
+                                        <strong>{{ row.price_warning.label }}</strong>
+                                    </div>
                                 </div>
                             {% endif %}
                         </div>

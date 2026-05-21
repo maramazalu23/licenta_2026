@@ -134,13 +134,27 @@
                             </div>
                         {% endif %}
 
-                        <div class="seller-eval-card__bottom">
+                        <div class="seller-eval-card__bottom seller-eval-card__bottom--actions">
                             <span class="seller-deal-label {{ deal_badge_class }}">{{ deal_label }}</span>
 
-                            <a class="btn btn-primary btn-sm seller-action-btn" href="{{ url_for('main.result_page', token=row.token) }}">
-                                <i class="bi bi-eye"></i>
-                                Vezi evaluarea
-                            </a>
+                            <div class="seller-eval-actions">
+                                <a class="btn btn-primary btn-sm seller-action-btn" href="{{ url_for('main.result_page', token=row.token) }}">
+                                    <i class="bi bi-eye"></i>
+                                    Vezi evaluarea
+                                </a>
+
+                                <form method="post" action="{{ url_for('main.delete_evaluation_route', token=row.token) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-outline-danger btn-sm seller-action-btn"
+                                        onclick="return confirm('Sigur vrei să ștergi această evaluare? Dacă evaluarea are un anunț publicat, acesta va fi șters automat.');"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                        Șterge
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </article>
                 {% endfor %}

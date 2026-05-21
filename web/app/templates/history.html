@@ -26,7 +26,7 @@
         </div>
 
         <span class="history-static-info">
-            <i class="bi bi-clock"></i>
+            <i class="bi bi-clock-history"></i>
             Ordonate după data evaluării
         </span>
     </div>
@@ -45,7 +45,7 @@
                         <th>Preț recomandat</th>
                         <th>Scor preț</th>
                         <th>Scor atractivitate</th>
-                        <th>Detalii</th>
+                        <th>Acțiuni</th>
                     </tr>
                 </thead>
 
@@ -131,11 +131,28 @@
                                 {% endif %}
                             </td>
 
-                            <td>
-                                <a class="btn btn-sm btn-outline-primary history-details-btn" href="{{ url_for('main.result_page', token=row.token) }}">
+                            <td class="history-actions-cell">
+                                <a
+                                    class="btn btn-sm btn-outline-primary history-icon-btn"
+                                    href="{{ url_for('main.result_page', token=row.token) }}"
+                                    title="Vezi evaluarea"
+                                    aria-label="Vezi evaluarea"
+                                >
                                     <i class="bi bi-eye"></i>
-                                    Vezi
                                 </a>
+
+                                <form method="post" action="{{ url_for('main.delete_evaluation_route', token=row.token) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button
+                                        type="submit"
+                                        class="btn btn-outline-danger btn-sm history-icon-btn"
+                                        title="Șterge evaluarea"
+                                        aria-label="Șterge evaluarea"
+                                        onclick="return confirm('Sigur vrei să ștergi această evaluare? Dacă evaluarea are un anunț publicat, acesta va fi șters automat.');"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                     {% endfor %}
