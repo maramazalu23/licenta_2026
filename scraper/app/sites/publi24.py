@@ -16,8 +16,6 @@ from app.filters import explain_publi24_laptop_filter
 
 DATE_RE = re.compile(r"\b(\d{2})\.(\d{2})\.(\d{4})\b")
 
-LOC_TOKEN_RE = re.compile(r"^[A-Za-zĂÂÎȘȚăâîșț \-]+$")
-
 BAD_LOCATION_EXACT = {
     "nu, mulțumesc",
     "nu, multumesc",
@@ -62,8 +60,6 @@ class Publi24Scraper(SiteScraper):
     CATEGORY_URLS = {
         # MVP: lucrăm pe laptopuri
         "laptopuri": "https://www.publi24.ro/anunturi/electronice/laptop/",
-        # Dacă vrei mai târziu:
-        # "electronice": "https://www.publi24.ro/anunturi/electronice/",
     }
 
     DETAIL_HREF_RE = re.compile(r"/anunt/.+\.html", re.IGNORECASE)
@@ -164,7 +160,6 @@ class Publi24Scraper(SiteScraper):
 
         model_guess = guess_model(title)
 
-        # sanitize location (evită header/cookie/cta)
         if location and self._is_bad_location(location):
             location = None
 
@@ -188,7 +183,7 @@ class Publi24Scraper(SiteScraper):
         )
     
     def filter_product(self, product: "Product") -> bool:
-        # Filtrare doar pentru laptopuri (cum ai avut în pipeline)
+        # Filtrare doar pentru laptopuri
         if product.category != "laptopuri":
             return True
 
@@ -203,26 +198,6 @@ class Publi24Scraper(SiteScraper):
     # -------------------
     # Helpers
     # -------------------
-    @staticmethod
-    def _extract_first_text_with(root, needle: str) -> Optional[str]:
-        needle_low = needle.lower()
-        for s in root.stripped_strings:
-            if needle_low in s.lower():
-                return s
-        return None
-
-    @staticmethod
-    def _sanitize_location(loc: Optional[str]) -> Optional[str]:
-        if not loc:
-            return None
-        norm = clean_text(loc).strip()
-        if not norm:
-            return None
-        low = norm.lower()
-        if low in BAD_LOCATION_EXACT:
-            return None
-        return norm
-
     @staticmethod
     def _extract_location_near(root) -> Optional[str]:
         for s in root.stripped_strings:
@@ -289,7 +264,7 @@ class Publi24Scraper(SiteScraper):
     def _extract_state(soup: BeautifulSoup) -> Optional[str]:
         """
         În exemplu avem "Specificații" -> "Stare" -> "folosit".
-        Heuristic: dacă găsim textul "Stare", luăm următorul string.
+        Euristic: dacă găsim textul "Stare", luăm următorul string.
         """
         strings = list(soup.stripped_strings)
         for idx, s in enumerate(strings):
@@ -407,7 +382,7 @@ class Publi24Scraper(SiteScraper):
                 candidates.sort(key=lambda dt: abs((dt - now).total_seconds()))
                 return candidates[0]
 
-        # 3) fallback vechi: dd.mm.yyyy
+        # 3) fallback: dd.mm.yyyy
         m = DATE_RE.search(full.replace("\n", " "))
         if m:
             dd, mm, yyyy = map(int, m.groups())

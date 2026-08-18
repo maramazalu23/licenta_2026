@@ -18,7 +18,6 @@ class PcGarageScraper(SiteScraper):
     BASE_URL = "https://www.pcgarage.ro"
 
     CATEGORY_URLS = {
-        # conform linkului tău
         "laptopuri": "https://www.pcgarage.ro/notebook-laptop/",
     }
 

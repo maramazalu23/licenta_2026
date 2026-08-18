@@ -161,7 +161,7 @@
                                 {% endif %}
                             </div>
                             {% if row.price_warning and row.price_warning.is_warning %}
-                                <div class="price-warning-box">
+                                <div class="price-warning-box price-warning-box--compact">
                                     <i class="bi bi-exclamation-triangle"></i>
                                     <div>
                                         <strong>{{ row.price_warning.label }}</strong>
@@ -237,7 +237,7 @@
                                 <span class="badge text-bg-light">{{ row.ram_gb or "-" }} GB</span>
                             </div>
                             {% if row.price_warning and row.price_warning.is_warning %}
-                                <div class="price-warning-box">
+                                <div class="price-warning-box price-warning-box--compact">
                                     <i class="bi bi-exclamation-triangle"></i>
                                     <div>
                                         <strong>{{ row.price_warning.label }}</strong>

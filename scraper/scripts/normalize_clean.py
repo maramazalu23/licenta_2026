@@ -19,16 +19,6 @@ BRAND_ALIASES = {
     "samsung": "Samsung",
 }
 
-COND_MAP = {
-    "nou": "new",
-    "sigilat": "new",
-    "ca nou": "like_new",
-    "ca noua": "like_new",
-    "folosit": "used",
-    "utilizat": "used",
-    "second": "used",
-}
-
 CPU_RE = re.compile(
     r"\b("
     r"i[3579]-?\d{4,5}[a-z]{0,2}"

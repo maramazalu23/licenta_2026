@@ -13,11 +13,11 @@ POLICIES: Dict[str, Dict[str, Any]] = {
         "max_retries": 3, "backoff_base_s": 1.0
     },
     "publi24.ro": {
-        "strategy": "JS_IF_SHELL",     # încearcă requests, apoi JS dacă pare shell/challenge
+        "strategy": "JS_IF_SHELL",
         "timeout_s": 20,
         "min_len": 15_000,
         "must_contain": None,
-        "fail_threshold": 2,
+        "fail_threshold": 2, # trec la browser dupa doua esecuri
         "max_retries": 3, "backoff_base_s": 1.0
     },
     "default": {

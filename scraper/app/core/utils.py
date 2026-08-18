@@ -17,8 +17,6 @@ MACBOOK_RE = re.compile(r"\bmacbook\b", re.IGNORECASE)
 
 BAD_PREFIXES = ("RTX", "GTX", "SSD", "RAM", "CORE", "RYZEN", "INTEL", "AMD", "GB", "HZ", "WUXGA", "FHD", "OLED")
 
-# prinde token-uri gen ANV15-41 / P1503CVA / E1504FA / 16ARP10 / 15IRX11
-TOKEN_RE = re.compile(r"\b([A-Z0-9]{2,12}(?:-[A-Z0-9]{1,6})?)\b", re.IGNORECASE)
 
 MODEL_PATTERNS = [
     # ThinkPad T480, X1 Carbon, etc.
@@ -38,7 +36,7 @@ def clean_text(s: str | None) -> str | None:
     if s is None:
         return None
     s = html.unescape(s)
-    s = s.replace("\xa0", " ")
+    s = s.replace("\xa0", " ") # non-breaking space
     s = SPACE_RE.sub(" ", s).strip()
     return s or None
 
@@ -77,7 +75,7 @@ def guess_model(title: str) -> Optional[str]:
     if not t:
         return None
 
-    # 1) pattern-urile tale existente (prioritare)
+    # 1) pattern-urile existente (prioritare)
     for rx in MODEL_PATTERNS:
         m = rx.search(t)
         if m:

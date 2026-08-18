@@ -161,7 +161,7 @@ def explain_publi24_laptop_filter(title: str | None, desc: str | None, url: str 
         if re.search(rf"\b{re.escape(b)}\b", text):
             return False, f"wanted_ban:{b}"
         
-    # 0.5) bundle / mixed listing dubios
+    # 0.5) bundle / mixed listing
     if _contains_any_word(text, BUNDLE_WORDS):
         suspicious_extra = [
             "diagnoza", "diagnoză", "tester auto", "interfata", "interfață",

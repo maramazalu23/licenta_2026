@@ -637,6 +637,28 @@ def get_explore_products(
     }
 
 
+def get_market_condition_distribution() -> Dict[str, Any]:
+    clauses, params = _base_visibility_clauses()
+
+    query = f"""
+        SELECT
+            SUM(CASE WHEN condition_norm = 'used' THEN 1 ELSE 0 END) AS used_count,
+            SUM(CASE WHEN condition_norm = 'new' THEN 1 ELSE 0 END) AS new_count
+        FROM products_clean
+        WHERE {' AND '.join(clauses)}
+    """
+
+    row = _fetch_one(query, params) or {}
+
+    return {
+        "labels": ["Second-hand", "Nou"],
+        "values": [
+            row.get("used_count", 0) or 0,
+            row.get("new_count", 0) or 0,
+        ],
+    }
+
+
 if __name__ == "__main__":
     print("=== MARKET SUMMARY ===")
     print(get_market_summary())
@@ -663,25 +685,3 @@ if __name__ == "__main__":
     print(f"count={sample['count']}")
     for item in sample["products"]:
         print(item)
-
-
-def get_market_condition_distribution() -> Dict[str, Any]:
-    clauses, params = _base_visibility_clauses()
-
-    query = f"""
-        SELECT
-            SUM(CASE WHEN condition_norm = 'used' THEN 1 ELSE 0 END) AS used_count,
-            SUM(CASE WHEN condition_norm = 'new' THEN 1 ELSE 0 END) AS new_count
-        FROM products_clean
-        WHERE {' AND '.join(clauses)}
-    """
-
-    row = _fetch_one(query, params) or {}
-
-    return {
-        "labels": ["Second-hand", "Nou"],
-        "values": [
-            row.get("used_count", 0) or 0,
-            row.get("new_count", 0) or 0,
-        ],
-    }

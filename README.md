@@ -15,41 +15,66 @@ Proiectul este format din două componente principale:
 licenta_2026/
 │
 ├── scraper/
+│   ├── run.py
+│   ├── daily_scrape.ps1
+│   ├── requirements.txt
 │   ├── app/
-│   │   ├── cleaning/
-│   │   ├── config/
 │   │   ├── core/
+│   │   │   └── http.py
 │   │   ├── sites/
+│   │   │   ├── publi24.py
+│   │   │   └── pcgarage.py
 │   │   ├── storage/
-│   │   ├── filters.py
-│   │   ├── models.py
-│   │   └── pipeline.py
+│   │   │   └── sqlite.py
+│   │   └── models.py
+│   │
 │   ├── scripts/
 │   │   ├── build_clean_table.py
 │   │   ├── normalize_clean.py
 │   │   ├── build_analysis_view.py
 │   │   ├── build_analysis_dataset.py
-│   │   └── vacuum_db.py
-│   ├── data_out/
-│   │   └── products.db
-│   ├── run.py
-│   └── daily_scrape.ps1
+│   │   └── checks/
+│   │       └── check_analysis_view.py
+│   │
+│   └── data_out/
+│       └── products.db
 │
 ├── web/
+│   ├── run.py
+│   ├── web.db
+│   ├── requirements.txt
 │   ├── app/
-│   │   ├── templates/
-│   │   ├── static/
-│   │   ├── scoring/
+│   │   ├── __init__.py
 │   │   ├── models.py
 │   │   ├── routes.py
 │   │   ├── services.py
-│   │   ├── auth.py
-│   │   └── db_market.py
-│   ├── config.py
-│   ├── run.py
-│   └── web.db
+│   │   ├── db_market.py
+│   │   │
+│   │   ├── scoring/
+│   │   │   ├── price_engine.py
+│   │   │   ├── depreciation.py
+│   │   │   └── attractiveness.py
+│   │   │
+│   │   ├── templates/
+│   │   │   ├── base.html
+│   │   │   ├── index.html
+│   │   │   ├── evaluate.html
+│   │   │   ├── listings.html
+│   │   │   ├── profile.html
+│   │   │   ├── favorites.html
+│   │   │   ├── notifications.html
+│   │   │   ├── admin_dashboard.html
+│   │   │   ├── admin_analytics.html
+│   │   │   └── admin_history.html
+│   │   │
+│   │   └── static/
+│   │       ├── css/
+│   │       │   └── main.css
+│   │       └── uploads/
+│   │           └── listings/
+│   │
+│   └── config.py
 │
-├── requirements.txt
 └── README.md
 ```
 

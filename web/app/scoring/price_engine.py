@@ -80,16 +80,6 @@ def _segment_confidence(source_level: str, used_n: int, condition: str, new_n: i
     return "very_low"
 
 
-def _compute_fair_price_used(
-    q1: Optional[float],
-    median: Optional[float],
-    q3: Optional[float],
-) -> Optional[float]:
-    if median is None:
-        return None
-    return _round_price(median)
-
-
 def _compute_deal_rating_used(
     price_asked: Optional[float],
     q1: Optional[float],
@@ -101,7 +91,7 @@ def _compute_deal_rating_used(
             "label": "unknown",
             "score": None,
             "delta_vs_fair": None,
-            "explanation": "Pretul cerut nu a fost furnizat.",
+            "explanation": "Prețul cerut nu a fost furnizat.",
         }
 
     if fair_price_used is None:
@@ -109,7 +99,7 @@ def _compute_deal_rating_used(
             "label": "unknown",
             "score": None,
             "delta_vs_fair": None,
-            "explanation": "Segmentul nu are suficiente comparabile pentru a evalua pretul.",
+            "explanation": "Segmentul nu are suficiente comparabile pentru a evalua prețul.",
         }
 
     delta = _round_price(price_asked - fair_price_used)
@@ -120,7 +110,7 @@ def _compute_deal_rating_used(
                 "label": "very_good",
                 "score": 90,
                 "delta_vs_fair": delta,
-                "explanation": "Pretul este sub primul quartil al segmentului si pare foarte avantajos.",
+                "explanation": "Prețul este sub primul quartil al segmentului și pare foarte avantajos.",
             }
 
         if q1 <= price_asked <= q3:
@@ -132,7 +122,7 @@ def _compute_deal_rating_used(
                 "label": "fair",
                 "score": score,
                 "delta_vs_fair": delta,
-                "explanation": "Pretul este in intervalul tipic al segmentului.",
+                "explanation": "Prețul este in intervalul tipic al segmentului.",
             }
 
         upper_gap = price_asked - q3
@@ -144,14 +134,14 @@ def _compute_deal_rating_used(
                 "label": "slightly_high",
                 "score": 55,
                 "delta_vs_fair": delta,
-                "explanation": "Pretul este usor peste intervalul tipic al segmentului.",
+                "explanation": "Prețul este ușor peste intervalul tipic al segmentului.",
             }
 
         return {
             "label": "overpriced",
             "score": 25,
             "delta_vs_fair": delta,
-            "explanation": "Pretul este mult peste intervalul tipic al segmentului.",
+            "explanation": "Prețul este mult peste intervalul tipic al segmentului.",
         }
 
     rel = abs(price_asked - fair_price_used) / max(fair_price_used, 1.0)
@@ -160,21 +150,21 @@ def _compute_deal_rating_used(
             "label": "fair",
             "score": 75,
             "delta_vs_fair": delta,
-            "explanation": "Pretul este apropiat de valoarea tipica estimata pentru segment.",
+            "explanation": "Prețul este apropiat de valoarea tipică estimată pentru segment.",
         }
     if price_asked < fair_price_used:
         return {
             "label": "good",
             "score": 85,
             "delta_vs_fair": delta,
-            "explanation": "Pretul este sub valoarea tipica estimata pentru segment.",
+            "explanation": "Prețul este sub valoarea tipică estimată pentru segment.",
         }
 
     return {
         "label": "high",
         "score": 45,
         "delta_vs_fair": delta,
-        "explanation": "Pretul este peste valoarea tipica estimata pentru segment.",
+        "explanation": "Prețul este peste valoarea tipică estimată pentru segment.",
     }
 
 
@@ -187,7 +177,7 @@ def _compute_deal_rating_new(
             "label": "unknown",
             "score": None,
             "delta_vs_fair": None,
-            "explanation": "Pretul cerut nu a fost furnizat.",
+            "explanation": "Prețul cerut nu a fost furnizat.",
         }
 
     if fair_price_new is None:
@@ -195,7 +185,7 @@ def _compute_deal_rating_new(
             "label": "unknown",
             "score": None,
             "delta_vs_fair": None,
-            "explanation": "Segmentul nou nu are suficiente comparabile pentru a evalua pretul.",
+            "explanation": "Segmentul nou nu are suficiente comparabile pentru a evalua prețul.",
         }
 
     delta = _round_price(price_asked - fair_price_new)
@@ -206,7 +196,7 @@ def _compute_deal_rating_new(
             "label": "very_good",
             "score": 90,
             "delta_vs_fair": delta,
-            "explanation": "Pretul este semnificativ sub mediana segmentului nou si pare foarte competitiv.",
+            "explanation": "Prețul este semnificativ sub mediana segmentului nou și pare foarte competitiv.",
         }
 
     if rel <= 0.10:
@@ -216,7 +206,7 @@ def _compute_deal_rating_new(
             "label": "fair",
             "score": score,
             "delta_vs_fair": delta,
-            "explanation": "Pretul este apropiat de mediana segmentului nou.",
+            "explanation": "Prețul este apropiat de mediana segmentului nou.",
         }
 
     if price_asked <= fair_price_new * 1.20:
@@ -224,14 +214,14 @@ def _compute_deal_rating_new(
             "label": "slightly_high",
             "score": 55,
             "delta_vs_fair": delta,
-            "explanation": "Pretul este usor peste nivelul tipic al segmentului nou.",
+            "explanation": "Prețul este ușor peste nivelul tipic al segmentului nou.",
         }
 
     return {
         "label": "overpriced",
         "score": 25,
         "delta_vs_fair": delta,
-        "explanation": "Pretul este mult peste nivelul tipic al segmentului nou.",
+        "explanation": "Prețul este mult peste nivelul tipic al segmentului nou.",
     }
 
 
@@ -269,7 +259,7 @@ def estimate_price(
     new_median = _to_float(new.get("median"))
     price_asked = _to_float(price_asked)
 
-    fair_price_used = _compute_fair_price_used(q1, median, q3)
+    fair_price_used = _round_price(median)
     fair_price_new = _round_price(new_median)
 
     if fair_price_used is not None and new_median not in (None, 0):
@@ -286,9 +276,9 @@ def estimate_price(
             fair_price_new=fair_price_new,
         )
         pricing_explanation = (
-            "Prețul recomandat pentru produsul nou este aproximat prin mediana segmentului de produse noi."
+            "Prețul recomandat pentru produsul nou este aproximat prin mediana produselor noi comparabile din segment."
             if fair_price_selected is not None
-            else "Nu există suficiente comparabile din segmentul nou pentru a estima robust prețul recomandat."
+            else "Nu există suficiente produse noi comparabile pentru a estima robust prețul recomandat."
         )
     else:
         fair_price_selected = fair_price_used
@@ -299,9 +289,9 @@ def estimate_price(
             fair_price_used=fair_price_used,
         )
         pricing_explanation = (
-            "Prețul recomandat pentru produsul second-hand este aproximat prin mediana segmentului de comparabile găsite în baza de date."
+            "Prețul recomandat pentru produsul second-hand este aproximat prin mediana produselor second-hand comparabile din segment."
             if fair_price_selected is not None
-            else "Nu există suficiente comparabile pentru a estima robust prețul recomandat."
+            else "Nu există suficiente produse second-hand comparabile pentru a estima robust prețul recomandat."
         )
 
     source_level = stats.get("source_level", "no_match")

@@ -28,11 +28,11 @@ SELECT
   gpu_guess,
   screen_in,
 
-  -- PRET: în tabela ta e price_ron, NU price
+  -- PRET
   price_ron AS price_value,
   currency,
 
-  -- dates/loc: în tabela ta sunt *_utc și *_clean
+  -- dates/loc
   posted_at_utc AS posted_at,
   location_clean AS location,
   county,

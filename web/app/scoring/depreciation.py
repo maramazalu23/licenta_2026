@@ -65,7 +65,7 @@ def compute_depreciation_score(
     else:
         score = 45
         label = "extreme_depreciation"
-        explanation = "Deprecierea estimată este foarte mare și poate reflecta fie uzura accentuată, fie comparabile imperfecte."
+        explanation = "Deprecierea estimată este foarte mare și poate reflecta date insuficiente, comparabile imperfecte sau un segment de piață neomogen."
 
     return {
         "score": int(_clamp(score, 0, 100)),

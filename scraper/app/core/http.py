@@ -48,7 +48,7 @@ class HttpClient:
     def __init__(self):
         self.session = requests.Session()
 
-        # User-Agent rotation (mică listă realistă)
+        # User-Agent rotation
         self.user_agents = [
             # Chrome Windows
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",

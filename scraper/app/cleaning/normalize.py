@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
 from typing import Optional, Tuple
 
 from app.models import Product
@@ -26,8 +24,6 @@ LOC_SEP_RE = re.compile(r"\s*,\s*")
 def normalize_location(location: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
     Returnează (location_clean, county, city)
-    - dacă ai "Bucuresti, Sector 3" => county="Sector 3", city="Bucuresti"
-    - dacă ai "Iasi" => county=None, city="Iasi"
     """
     if not location:
         return None, None, None
