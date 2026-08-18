@@ -1,15 +1,15 @@
-# IT Resell — Sistem de analiză și evaluare a pieței laptopurilor
+# IT Resell — Laptop Market Analysis and Evaluation System
 
-Acest proiect a fost realizat în cadrul lucrării de licență și propune o aplicație web pentru analiza pieței laptopurilor noi și second-hand. Sistemul colectează date din surse online, normalizează informațiile relevante și le utilizează pentru estimarea unui preț recomandat, evaluarea atractivității unui anunț și susținerea deciziilor pentru cumpărători și vânzători.
+This project was developed as part of the bachelor's thesis and proposes a web application for analyzing the market of new and second-hand laptops. The system collects data from online sources, normalizes the relevant information, and uses it to estimate a recommended price, evaluate the attractiveness of a listing, and support decision-making for buyers and sellers.
 
-Proiectul este format din două componente principale:
+The project consists of two main components:
 
-- `scraper/` — componenta de colectare, curățare și pregătire a datelor;
-- `web/` — aplicația Flask pentru utilizatori, evaluări, anunțuri, favorite, notificări și dashboard administrativ.
+- `scraper/` — the data collection, cleaning, and preparation component;
+- `web/` — the Flask application for users, evaluations, listings, favorites, notifications, and the administrative dashboard.
 
 ---
 
-## 1. Structura proiectului
+## 1. Project structure
 
 ```text
 licenta_2026/
@@ -80,43 +80,43 @@ licenta_2026/
 
 ---
 
-## 2. Tehnologii utilizate
+## 2. Technologies used
 
 - Python 3
 - Flask, SQLAlchemy, Flask-Login, Flask-WTF
 - SQLite
 - BeautifulSoup, Playwright
 - Chart.js, Bootstrap 5
-- PowerShell + Windows Task Scheduler pentru automatizare
+- PowerShell + Windows Task Scheduler for automation
 
 ---
 
-## 3. Componenta de scraping
+## 3. Scraping component
 
-Componenta `scraper/` colectează date despre laptopuri din două surse:
+The `scraper/` component collects laptop data from two sources:
 
-- **Publi24** — produse second-hand;
-- **PCGarage** — produse noi.
+- **Publi24** — second-hand products;
+- **PCGarage** — new products.
 
-Datele sunt salvate în:
+The data is stored in:
 
 ```text
 scraper/data_out/products.db
 ```
 
-Tabele principale:
+Main tables:
 
-| Tabel / View | Conținut |
+| Table / View | Content |
 |---|---|
-| `products` | Produse brute colectate |
-| `scrape_runs` | Istoricul rulărilor |
-| `price_snapshots` | Snapshot-uri de preț |
-| `products_clean` | Produse curățate și normalizate |
-| `products_analysis` | View final folosit de aplicația web |
+| `products` | Raw collected products |
+| `scrape_runs` | Run history |
+| `price_snapshots` | Price snapshots |
+| `products_clean` | Cleaned and normalized products |
+| `products_analysis` | Final view used by the web application |
 
 ---
 
-## 4. Rularea scraperului
+## 4. Running the scraper
 
 ```powershell
 cd C:\Users\User\licenta_2026\scraper
@@ -133,114 +133,114 @@ python run.py publi24 --category laptopuri --pages 2 --max-products 20
 python run.py pcgarage --category laptopuri --pages 1 --max-products 20
 ```
 
-**Reconstruire dataset după colectare:**
+**Rebuild dataset after collection:**
 ```powershell
 python -m scripts.build_analysis_dataset
 ```
 
-**Compactare bază de date:**
+**Database compaction:**
 ```powershell
 python -m scripts.vacuum_db
 ```
 
 ---
 
-## 5. Automatizarea scraperului
+## 5. Scraper automation
 
-Proiectul include un script PowerShell pentru actualizarea automată a datelor:
+The project includes a PowerShell script for automatically updating the data:
 
 ```text
 scraper/daily_scrape.ps1
 ```
 
-Scriptul rulează comenzile necesare pentru actualizarea datelor: colectarea produselor din sursele configurate, reconstruirea datasetului de analiză și compactarea bazei de date.
+The script runs the commands required to update the data: collecting products from the configured sources, rebuilding the analysis dataset, and compacting the database.
 
-**Rulare manuală:**
+**Manual run:**
 ```powershell
 cd C:\Users\User\licenta_2026\scraper
 powershell -ExecutionPolicy Bypass -File .\daily_scrape.ps1
 ```
 
-**Programare automată zilnică la ora 12:00:**
+**Automatic daily scheduling at 12:00:**
 
-Scriptul poate fi programat prin Windows Task Scheduler să ruleze zilnic la ora 12:00. Pașii de configurare:
+The script can be scheduled through Windows Task Scheduler to run daily at 12:00. Configuration steps:
 
-1. Deschide **Task Scheduler** → *Create Basic Task*
-2. Setează trigger: **Daily**, ora **12:00**
-3. Setează acțiunea: **Start a program**
+1. Open **Task Scheduler** → *Create Basic Task*
+2. Set the trigger: **Daily**, at **12:00**
+3. Set the action: **Start a program**
    - Program: `powershell.exe`
-   - Argumente: `-ExecutionPolicy Bypass -File "C:\Users\User\licenta_2026\scraper\daily_scrape.ps1"`
+   - Arguments: `-ExecutionPolicy Bypass -File "C:\Users\User\licenta_2026\scraper\daily_scrape.ps1"`
    - Start in: `C:\Users\User\licenta_2026\scraper`
-4. Salvează task-ul
+4. Save the task
 
-Această abordare permite actualizarea periodică a datelor fără a integra un scheduler direct în aplicația Flask.
+This approach allows the data to be updated periodically without integrating a scheduler directly into the Flask application.
 
 ---
 
-## 6. Componenta web
+## 6. Web component
 
-Aplicația Flask folosește două baze de date:
+The Flask application uses two databases:
 
-| Bază de date | Rol |
+| Database | Role |
 |---|---|
-| `scraper/data_out/products.db` | Date de piață, acces read-only |
-| `web/web.db` | Date aplicație (utilizatori, evaluări, anunțuri, favorite, notificări) |
+| `scraper/data_out/products.db` | Market data, read-only access |
+| `web/web.db` | Application data (users, evaluations, listings, favorites, notifications) |
 
 ---
 
-## 7. Roluri în aplicație
+## 7. Application roles
 
 ### Admin
-- Dashboard administrativ cu metrici și grafice
-- Istoric global al evaluărilor cu filtre
-- Acces la toate anunțurile publicate
+- Administrative dashboard with metrics and charts
+- Global evaluation history with filters
+- Access to all published listings
 
 ### Seller
-- Evaluează produse și publică anunțuri
-- Încarcă imagini pentru anunțuri
-- Primește notificări despre interesul cumpărătorilor
-- Gestionează propriile anunțuri
+- Evaluates products and publishes listings
+- Uploads images for listings
+- Receives notifications about buyer interest
+- Manages their own listings
 
 ### Buyer
-- Explorează produse din baza de piață
-- Adaugă anunțuri la favorite
-- Primește sugestii personalizate pe baza favoritelor
+- Explores products from the market database
+- Adds listings to favorites
+- Receives personalized suggestions based on favorites
 
 ---
 
-## 8. Funcționalități principale
+## 8. Main functionalities
 
-### Evaluarea unui produs
+### Product evaluation
 
-Utilizatorul completează un formular cu titlu, descriere, brand, RAM, condiție, preț cerut și, opțional, familia modelului. Aplicația estimează:
+The user completes a form with title, description, brand, RAM, condition, asking price, and, optionally, the model family. The application estimates:
 
-- prețul recomandat (bazat pe mediana segmentului de piață);
-- scorul de preț, care indică poziționarea prețului cerut față de segmentul de piață;
-- scorul de depreciere (față de prețul median al produselor noi);
-- scorul de atractivitate al anunțului, care evaluează cât de complet și clar este anunțul.
-- produse similare din baza de date.
+- the recommended price (based on the median of the market segment);
+- the price score, which indicates the positioning of the asking price relative to the market segment;
+- the depreciation score (relative to the median price of new products);
+- the listing attractiveness score, which evaluates how complete and clear the listing is.
+- similar products from the database.
 
-### Publicarea unui anunț
+### Publishing a listing
 
-Un seller poate publica un anunț pornind de la o evaluare salvată și poate încărca o imagine a produsului. Imaginile sunt salvate în:
+A seller can publish a listing starting from a saved evaluation and can upload an image of the product. Images are stored in:
 
 ```text
 web/app/static/uploads/listings/
 ```
 
-La ștergerea unui anunț, imaginea asociată este ștearsă automat și de pe disc.
+When a listing is deleted, the associated image is also automatically deleted from disk.
 
-### Favorite și recomandări
+### Favorites and recommendations
 
-Buyerii pot salva anunțuri la favorite. Aplicația generează sugestii personalizate pe baza segmentelor de piață preferate (brand + model_family + ram_gb).
+Buyers can save listings to favorites. The application generates personalized suggestions based on preferred market segments (brand + model_family + ram_gb).
 
-### Notificări pentru seller
+### Seller notifications
 
-Sellerii primesc notificări când cumpărători salvează la favorite anunțuri din același segment cu produsele lor. Notificarea include și prețul median estimat din piață pentru segmentul respectiv.
+Sellers receive notifications when buyers add to favorites listings from the same segment as their products. The notification also includes the estimated median market price for the respective segment.
 
 ---
 
-## 9. Rularea aplicației web
+## 9. Running the web application
 
 ```powershell
 cd C:\Users\User\licenta_2026\web
@@ -248,27 +248,27 @@ cd C:\Users\User\licenta_2026\web
 python -m flask --app run.py run
 ```
 
-Aplicația pornește la: `http://127.0.0.1:5000`
+The application starts at: `http://127.0.0.1:5000`
 
-Notă: interfața folosește Bootstrap și Chart.js prin CDN. Pentru rularea complet offline, aceste librării ar trebui descărcate local și servite din folderul static al aplicației Flask.
+Note: the interface uses Bootstrap and Chart.js via CDN. For fully offline operation, these libraries would need to be downloaded locally and served from the Flask application's static folder.
 
 ---
 
-## 10. Configurare
+## 10. Configuration
 
-Fișierul de configurare: `web/config.py`
+Configuration file: `web/config.py`
 
-| Parametru | Valoare implicită |
+| Parameter | Default value |
 |---|---|
 | `SECRET_KEY` | `licenta-dev-secret-key` (development) |
 | `UPLOAD_FOLDER` | `web/app/static/uploads/listings/` |
 | `MAX_CONTENT_LENGTH` | 5 MB |
 
-Pentru producție, setează variabila de mediu `SECRET_KEY`.
+For production, set the `SECRET_KEY` environment variable.
 
 ---
 
-## 11. Crearea unui cont de admin
+## 11. Creating an admin account
 
 ```powershell
 cd C:\Users\User\licenta_2026\web
@@ -276,15 +276,15 @@ cd C:\Users\User\licenta_2026\web
 python -c "from app import create_app; from app.services import set_user_role; app=create_app(); app.app_context().push(); print(set_user_role('email@example.com','admin'))"
 ```
 
-Înlocuiește `email@example.com` cu adresa contului care trebuie promovat.
+Replace `email@example.com` with the address of the account that needs to be promoted.
 
 ---
 
-## 12. Observații privind baza de date
+## 12. Database notes
 
-Aplicația creează automat tabelele lipsă din `web.db` prin `db.create_all()`. Dacă se adaugă coloane noi în modele după crearea bazei, este necesară o migrare manuală.
+The application automatically creates missing tables in `web.db` through `db.create_all()`. If new columns are added to the models after the database has been created, a manual migration is required.
 
-**Exemplu — adăugare coloană `image_filename` dacă lipsește:**
+**Example — add the `image_filename` column if it is missing:**
 
 ```powershell
 python -c "import sqlite3; con=sqlite3.connect('web.db'); cur=con.cursor(); cols=[r[1] for r in cur.execute('PRAGMA table_info(listings)')]; cur.execute('ALTER TABLE listings ADD COLUMN image_filename TEXT') if 'image_filename' not in cols else None; con.commit(); con.close(); print('OK')"
@@ -292,7 +292,7 @@ python -c "import sqlite3; con=sqlite3.connect('web.db'); cur=con.cursor(); cols
 
 ---
 
-## 13. Testare
+## 13. Testing
 
 ```powershell
 cd C:\Users\User\licenta_2026\scraper
@@ -302,7 +302,7 @@ pytest -q
 
 ---
 
-## 14. Fișiere excluse din repository
+## 14. Files excluded from the repository
 
 ```text
 __pycache__/
@@ -315,19 +315,19 @@ scraper/data_out/browser_profile/
 web/app/static/uploads/listings/
 ```
 
-`products.db` poate fi păstrat pentru a permite rularea aplicației fără a relua scrapingul de la zero. Opțional, `web.db` poate fi păstrat dacă se dorește includerea unor utilizatori și anunțuri demonstrative.
+`products.db` can be kept to allow the application to run without restarting the scraping process from scratch. Optionally, `web.db` can be kept if the inclusion of demonstration users and listings is desired.
 
 ---
 
-## 15. Scopul proiectului
+## 15. Project purpose
 
-Scopul proiectului este dezvoltarea unui sistem integrat pentru colectarea, analiza și utilizarea datelor de piață în procesul de evaluare a laptopurilor noi și second-hand.
+The purpose of the project is to develop an integrated system for collecting, analyzing, and using market data in the process of evaluating new and second-hand laptops.
 
-Poate fi utilizat pentru:
+It can be used for:
 
-- estimarea unui preț orientativ bazat pe date reale de piață;
-- compararea cu produse similare;
-- analiza diferenței dintre prețul cerut și valoarea de piață;
-- personalizarea experienței pentru cumpărători;
-- informarea vânzătorilor despre interesul existent în platformă;
-- monitorizarea activității prin dashboard administrativ.
+- estimating an indicative price based on real market data;
+- comparing with similar products;
+- analyzing the difference between the asking price and the market value;
+- personalizing the experience for buyers;
+- informing sellers about existing interest on the platform;
+- monitoring activity through the administrative dashboard.
